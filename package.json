@@ -23,6 +23,9 @@
     "blockchain:deploy": "npm run deploy:local --workspace=blockchain",
     "blockchain:test": "npm run test --workspace=blockchain"
   },
+  "dependencies": {
+    "typescript": "^5.4.5"
+  },
   "devDependencies": {
     "concurrently": "^9.1.2"
   },
