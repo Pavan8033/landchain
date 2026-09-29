@@ -85,32 +85,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const login = async (email: string) => {
+  const login = async (email: string, _password?: string): Promise<UserProfile> => {
     setIsLoading(true);
-    // Find matching demo profile or create session
+    // 1. Check direct demo profiles
     const matchedRole = (Object.keys(DEMO_PROFILES) as UserRole[]).find(
       (r) => DEMO_PROFILES[r].email.toLowerCase() === email.toLowerCase()
     );
 
+    let loggedInUser: UserProfile;
+
     if (matchedRole) {
+      loggedInUser = DEMO_PROFILES[matchedRole];
       switchDemoRole(matchedRole);
     } else {
-      const genericUser: UserProfile = {
+      // 2. Check locally saved registered role or infer from email
+      const savedRole = localStorage.getItem(`landchain_role_${email.toLowerCase()}`) as UserRole | null;
+      let inferredRole: UserRole = "seller";
+      const lower = email.toLowerCase();
+      if (savedRole) {
+        inferredRole = savedRole;
+      } else if (lower.includes("seller") || lower.includes("landlord") || lower.includes("owner")) {
+        inferredRole = "seller";
+      } else if (lower.includes("gov") || lower.includes("admin") || lower.includes("authority")) {
+        inferredRole = "government";
+      } else if (lower.includes("agent") || lower.includes("broker")) {
+        inferredRole = "agent";
+      } else if (lower.includes("buyer") || lower.includes("client")) {
+        inferredRole = "buyer";
+      }
+
+      loggedInUser = {
         uid: `user-${Date.now().toString().slice(-4)}`,
         email,
         displayName: email.split("@")[0],
-        role: "buyer",
+        role: inferredRole,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      setUser(genericUser);
-      localStorage.setItem("landchain_token", `demo-token-${genericUser.uid}`);
-      localStorage.setItem("landchain_demo_role", "buyer");
+      setUser(loggedInUser);
+      localStorage.setItem("landchain_token", `demo-token-${inferredRole}`);
+      localStorage.setItem("landchain_demo_role", inferredRole);
+      localStorage.setItem("landchain_demo_uid", loggedInUser.uid);
     }
     setIsLoading(false);
+    return loggedInUser;
   };
 
-  const register = async (email: string, _password: string, role: UserRole, displayName: string) => {
+  const register = async (email: string, _password: string, role: UserRole, displayName: string): Promise<UserProfile> => {
     setIsLoading(true);
     const newUser: UserProfile = {
       uid: `user-${Date.now().toString().slice(-4)}`,
@@ -121,9 +142,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updatedAt: new Date().toISOString(),
     };
     setUser(newUser);
-    localStorage.setItem("landchain_token", `demo-token-${newUser.uid}`);
+    localStorage.setItem(`landchain_role_${email.toLowerCase()}`, role);
+    localStorage.setItem("landchain_token", `demo-token-${role}`);
     localStorage.setItem("landchain_demo_role", role);
+    localStorage.setItem("landchain_demo_uid", newUser.uid);
     setIsLoading(false);
+    return newUser;
   };
 
   const logout = () => {

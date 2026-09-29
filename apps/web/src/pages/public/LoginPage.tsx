@@ -17,8 +17,9 @@ export const LoginPage: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(email, password);
-      navigate("/seller/dashboard");
+      const loggedIn = await login(email, password);
+      const role = loggedIn?.role || "seller";
+      navigate(`/${role}/dashboard`);
     } catch (e: any) {
       alert("Login error: " + e.message);
     } finally {
