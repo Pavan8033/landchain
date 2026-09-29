@@ -5,21 +5,45 @@ import { Button } from "../../components/common/Button";
 import { Breadcrumbs } from "../../components/common/Breadcrumbs";
 import { Badge, getStatusBadge } from "../../components/common/Badge";
 import { EmptyState } from "../../components/common/EmptyState";
-import { PlusCircle, FileText, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { Modal } from "../../components/common/Modal";
+import { PlusCircle, FileText, CheckCircle2, Clock, AlertCircle, Trash2, ShieldAlert } from "lucide-react";
 import { api } from "../../services/api";
 import { LandApplication } from "../../types";
 
 export const SellerApplicationsPage: React.FC = () => {
   const [applications, setApplications] = useState<LandApplication[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingApp, setDeletingApp] = useState<LandApplication | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  useEffect(() => {
+  const loadApplications = () => {
+    setLoading(true);
     api
       .listApplications()
       .then((data) => setApplications(data))
       .catch((e) => console.error(e))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadApplications();
   }, []);
+
+  const handleDelete = async () => {
+    if (!deletingApp) return;
+    setIsDeleting(true);
+    setErrorMsg("");
+    try {
+      await api.deleteApplication(deletingApp.id);
+      setApplications((prev) => prev.filter((a) => a.id !== deletingApp.id));
+      setDeletingApp(null);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to delete application.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -33,10 +57,10 @@ export const SellerApplicationsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-serif text-3xl font-bold text-midnight">
-            Submitted Land Applications
+            Submitted Land Applications ({applications.length})
           </h1>
           <p className="text-xs text-muted-slate mt-1">
-            Track the government review pipeline, document scrutiny, and blockchain verification status.
+            Submit unlimited land registration applications, track verification progress, or withdraw/delete applications anytime.
           </p>
         </div>
 
@@ -53,8 +77,8 @@ export const SellerApplicationsPage: React.FC = () => {
             <EmptyState
               icon={<FileText className="w-6 h-6" />}
               title="No Applications Submitted"
-              description="Use the multi-step registration wizard to submit a property for verification."
-              actionText="Register Land Parcel"
+              description="Use the multi-step registration wizard to submit properties for municipal verification."
+              actionText="Register New Land Parcel"
               onAction={() => (window.location.href = "/seller/register-land")}
             />
           </div>
@@ -70,6 +94,7 @@ export const SellerApplicationsPage: React.FC = () => {
                   <th className="py-3 px-4">Submitted Date</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4">Review Notes</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ivory-200">
@@ -91,6 +116,19 @@ export const SellerApplicationsPage: React.FC = () => {
                     <td className="py-3 px-4 text-muted-slate max-w-xs truncate">
                       {app.reviewNotes || "Pending initial government review"}
                     </td>
+                    <td className="py-3 px-4 text-right">
+                      {app.status !== "VERIFIED_ON_CHAIN" ? (
+                        <button
+                          onClick={() => setDeletingApp(app)}
+                          title="Delete / Withdraw Application"
+                          className="p-1.5 rounded-lg text-muted-slate hover:text-status-error hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-emerald-600 font-semibold">On-Chain</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -98,6 +136,58 @@ export const SellerApplicationsPage: React.FC = () => {
           </div>
         )}
       </Card>
+
+      {/* Delete Confirmation Modal */}
+      {deletingApp && (
+        <Modal
+          isOpen={true}
+          onClose={() => {
+            setDeletingApp(null);
+            setErrorMsg("");
+          }}
+          title="Withdraw & Delete Application"
+        >
+          <div className="space-y-4 text-xs">
+            <div className="flex items-start space-x-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800">
+              <ShieldAlert className="w-5 h-5 flex-shrink-0 text-status-error mt-0.5" />
+              <div>
+                <p className="font-semibold">Are you sure you want to delete this application?</p>
+                <p className="text-[11px] text-red-700 mt-1">
+                  This will permanently remove application <strong>{deletingApp.applicationId}</strong> (Survey: <strong>{deletingApp.surveyNumber}</strong>) from the government review queue.
+                </p>
+              </div>
+            </div>
+
+            {errorMsg && (
+              <div className="p-3 bg-red-100 text-red-800 rounded-lg font-medium">
+                {errorMsg}
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3 pt-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setDeletingApp(null);
+                  setErrorMsg("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                isLoading={isDeleting}
+                onClick={handleDelete}
+                leftIcon={<Trash2 className="w-4 h-4" />}
+              >
+                Confirm Delete
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

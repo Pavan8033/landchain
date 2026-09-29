@@ -224,6 +224,66 @@ router.get("/:id", authenticate, async (req: Request, res: Response, next: NextF
 });
 
 /**
+ * DELETE /api/applications/:id
+ * Seller deletes/withdraws their pending or rejected application (or Government purges application)
+ */
+router.delete("/:id", authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = req.user!;
+    const { id } = req.params;
+
+    let app: LandApplication | null = null;
+    if (isUsingRealFirebase) {
+      const doc = await admin.firestore().collection("landApplications").doc(id).get();
+      if (doc.exists) app = doc.data() as LandApplication;
+    } else {
+      app = memoryStore.getDoc("landApplications", id);
+    }
+
+    if (!app) {
+      return res.status(404).json({ success: false, error: `Application ${id} not found.` });
+    }
+
+    // Authorization check
+    if (user.role !== "government" && app.applicantUid !== user.uid) {
+      return res.status(403).json({ success: false, error: "Unauthorized: You can only delete your own applications." });
+    }
+
+    // Protection: Verified on-chain applications cannot be deleted arbitrarily (they exist on blockchain)
+    if (app.status === "VERIFIED_ON_CHAIN" && user.role !== "government") {
+      return res.status(400).json({
+        success: false,
+        error: "Cannot delete an application that has already been verified and registered on the blockchain.",
+      });
+    }
+
+    if (isUsingRealFirebase) {
+      await admin.firestore().collection("landApplications").doc(id).delete();
+    } else {
+      const col = memoryStore.getCollection("landApplications");
+      col.delete(id);
+    }
+
+    await logAuditEvent({
+      actorUid: user.uid,
+      actorEmail: user.email,
+      actorRole: user.role,
+      action: "LAND_APPLICATION_DELETED",
+      targetType: "APPLICATION",
+      targetId: id,
+      metadata: { surveyNumber: app.surveyNumber, deletedBy: user.email },
+    });
+
+    return res.json({
+      success: true,
+      message: `Land application ${app.applicationId} (${app.surveyNumber}) deleted successfully.`,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * PUT /api/applications/:id/review
  * Government reviewer approves or rejects application
  */

@@ -216,6 +216,12 @@ class ApiClient {
     });
   }
 
+  async deleteApplication(id: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/applications/${id}`, {
+      method: "DELETE",
+    });
+  }
+
   // --- Land Records APIs ---
   async searchRecords(params: { q?: string; locality?: string; category?: string; page?: number; limit?: number }): Promise<{
     data: LandRecord[];
