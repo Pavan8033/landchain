@@ -7,8 +7,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   role: UserRole;
   isLoading: boolean;
-  login: (email: string, password?: string) => Promise<void>;
-  register: (email: string, password: string, role: UserRole, displayName: string) => Promise<void>;
+  login: (email: string, password?: string) => Promise<UserProfile>;
+  register: (email: string, password: string, role: UserRole, displayName: string) => Promise<UserProfile>;
   logout: () => void;
   switchDemoRole: (role: UserRole) => void;
 }
