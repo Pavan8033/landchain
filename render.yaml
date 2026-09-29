@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: landchain-api
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build --workspace=apps/api
+    startCommand: npm run start --workspace=apps/api
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: FIREBASE_PROJECT_ID
+        value: land-registry-da90e
+      - key: RPC_URL
+        value: https://ethereum-sepolia-rpc.publicnode.com
+      - key: LAND_REGISTRY_CONTRACT_ADDRESS
+        value: "0x6c50d40D48bA45f9D3061910f2d7c23EBC15f63d"
