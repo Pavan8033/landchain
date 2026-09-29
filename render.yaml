@@ -3,8 +3,8 @@ services:
     name: landchain-api
     env: node
     plan: free
-    buildCommand: npm install && npm run build --workspace=apps/api
-    startCommand: npm run start --workspace=apps/api
+    buildCommand: npm install --include=dev && npm run build --workspace=apps/api
+    startCommand: node apps/api/dist/index.js
     envVars:
       - key: NODE_ENV
         value: production
