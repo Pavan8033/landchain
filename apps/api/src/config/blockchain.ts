@@ -2,12 +2,17 @@ import { ethers } from "ethers";
 import * as path from "path";
 import * as fs from "fs";
 
-const RPC_URL = process.env.BLOCKCHAIN_RPC_URL || "http://127.0.0.1:8545";
+const RPC_URL =
+  process.env.RPC_URL ||
+  process.env.BLOCKCHAIN_RPC_URL ||
+  "https://ethereum-sepolia-rpc.publicnode.com";
 
 let CONTRACT_ABI: any[] = [];
 
 export function resolveContractConfig(): { address: string; abi: any[] } {
-  let address = process.env.LAND_REGISTRY_CONTRACT_ADDRESS || "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+  let address =
+    process.env.LAND_REGISTRY_CONTRACT_ADDRESS ||
+    "0x6c50d40D48bA45f9D3061910f2d7c23EBC15f63d";
   let abi = CONTRACT_ABI;
   try {
     const deploymentPath = path.resolve(__dirname, "../contracts/LandRegistry.json");
