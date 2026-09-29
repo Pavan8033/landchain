@@ -173,9 +173,9 @@ router.get("/", authenticate, async (req: Request, res: Response, next: NextFunc
       if (statusFilter) {
         query = query.where("status", "==", statusFilter);
       }
-      query = query.orderBy("createdAt", "desc");
       const snap = await query.get();
       apps = snap.docs.map((d) => d.data() as LandApplication);
+      apps.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     } else {
       apps = memoryStore.listDocs("landApplications", (item) => {
         const matchesUser = user.role === "government" || item.applicantUid === user.uid;

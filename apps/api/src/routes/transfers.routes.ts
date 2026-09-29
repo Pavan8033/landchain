@@ -186,8 +186,9 @@ router.get("/", authenticate, async (req: Request, res: Response, next: NextFunc
       } else if (user.role === "buyer") {
         query = query.where("buyerUid", "==", user.uid);
       }
-      const snap = await query.orderBy("createdAt", "desc").get();
+      const snap = await query.get();
       list = snap.docs.map((d) => d.data() as TransferRequest);
+      list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     } else {
       list = memoryStore.listDocs("transferRequests", (item) => {
         if (user.role === "government") return true;
