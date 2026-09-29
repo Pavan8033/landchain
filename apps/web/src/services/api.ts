@@ -56,11 +56,11 @@ class ApiClient {
       if (options.signal) {
         fetchOptions.signal = options.signal;
       } else if (typeof window !== "undefined" && window.AbortController) {
-        // In browser runtime, attach 15s timeout
+        // In browser runtime, attach 60s timeout to support free-tier cold starts
         const isTestEnv = typeof process !== "undefined" && process.env && process.env.NODE_ENV === "test";
         if (!isTestEnv) {
           const controller = new window.AbortController();
-          timeoutId = setTimeout(() => controller.abort(), 15000);
+          timeoutId = setTimeout(() => controller.abort(), 60000);
           fetchOptions.signal = controller.signal;
         }
       }
