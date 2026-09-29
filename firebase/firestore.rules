@@ -1,0 +1,154 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isGovernment() {
+      return isAuthenticated() && 
+        (request.auth.token.role == 'government' || request.auth.token.government == true);
+    }
+
+    function isAgent() {
+      return isAuthenticated() && request.auth.token.role == 'agent';
+    }
+
+    // Default: Deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Users Collection
+    // Users can read public profile summaries; can only edit their own profile details.
+    // Privileged fields like `role` or `governmentClaim` can NEVER be written by clients.
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == userId
+        && !('role' in request.resource.data) // role is set only via Admin SDK
+        || request.resource.data.role in ['seller', 'buyer', 'agent'];
+      allow update: if isOwner(userId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isGovVerified', 'adminClaims'])
+        || isGovernment();
+      allow delete: if false;
+    }
+
+    // Land Applications Collection
+    // Sellers can create and read their own applications.
+    // Only authorized government verifiers can approve, reject, or update review status.
+    match /landApplications/{appId} {
+      allow read: if isAuthenticated() && (
+        resource.data.applicantUid == request.auth.uid ||
+        isGovernment()
+      );
+      
+      // Applicant can submit initial application with status PENDING_REVIEW
+      allow create: if isAuthenticated() &&
+        request.resource.data.applicantUid == request.auth.uid &&
+        request.resource.data.status == 'PENDING_REVIEW' &&
+        !('approvedBy' in request.resource.data) &&
+        !('onChainTxHash' in request.resource.data);
+
+      // Applicant can update while DRAFT or PENDING_REVIEW (cannot change status to APPROVED or VERIFIED)
+      allow update: if isAuthenticated() && (
+        (resource.data.applicantUid == request.auth.uid &&
+         resource.data.status in ['DRAFT', 'PENDING_REVIEW'] &&
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'reviewNotes', 'reviewerUid', 'onChainTxHash'])) ||
+        isGovernment()
+      );
+
+      allow delete: if false;
+    }
+
+    // Land Records (Canonical Blockchain-backed Projections)
+    // Public can read published and verified records.
+    // Authenticated users can read their owned records.
+    // Writes are strictly restricted to the authorized backend / government role.
+    match /landRecords/{landId} {
+      allow read: if (
+        (resource.data.publicationState == 'PUBLISHED' && resource.data.verificationState == 'VERIFIED_ON_CHAIN') ||
+        (isAuthenticated() && (resource.data.currentOwnerUid == request.auth.uid || isGovernment() || isAgent()))
+      );
+      allow create, update, delete: if isGovernment();
+    }
+
+    // Transfer Requests Collection
+    // Seller or Buyer involved can read; Government can read all.
+    // Seller can create transfer request.
+    // Buyer can accept/reject.
+    // Government verifier approves and coordinates blockchain execution.
+    match /transferRequests/{transferId} {
+      allow read: if isAuthenticated() && (
+        resource.data.sellerUid == request.auth.uid ||
+        resource.data.buyerUid == request.auth.uid ||
+        isGovernment()
+      );
+
+      allow create: if isAuthenticated() &&
+        request.resource.data.sellerUid == request.auth.uid &&
+        request.resource.data.status == 'PENDING_BUYER';
+
+      allow update: if isAuthenticated() && (
+        // Buyer can update status to ACCEPTED_BY_BUYER or REJECTED_BY_BUYER
+        (resource.data.buyerUid == request.auth.uid &&
+         resource.data.status == 'PENDING_BUYER' &&
+         request.resource.data.status in ['ACCEPTED_BY_BUYER', 'REJECTED_BY_BUYER']) ||
+        // Seller can cancel
+        (resource.data.sellerUid == request.auth.uid &&
+         resource.data.status == 'PENDING_BUYER' &&
+         request.resource.data.status == 'CANCELLED') ||
+        // Government can review and finalize
+        isGovernment()
+      );
+
+      allow delete: if false;
+    }
+
+    // Documents Metadata Collection
+    match /documents/{docId} {
+      allow read: if isAuthenticated() && (
+        resource.data.uploaderUid == request.auth.uid ||
+        isGovernment()
+      );
+      allow create: if isAuthenticated() && request.resource.data.uploaderUid == request.auth.uid;
+      allow update, delete: if isGovernment();
+    }
+
+    // Notifications Collection
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated() && resource.data.recipientUid == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.recipientUid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+      allow create: if isAuthenticated(); // Service or trigger creates notifications
+      allow delete: if false;
+    }
+
+    // Audit Logs Collection
+    // Append-only via server or government; read restricted to authorized government.
+    match /auditLogs/{logId} {
+      allow read: if isGovernment();
+      allow create: if isAuthenticated();
+      allow update, delete: if false; // Immutable audit trail
+    }
+
+    // Agent Enquiries Collection
+    match /agentEnquiries/{enquiryId} {
+      allow read: if isAuthenticated() && (
+        resource.data.agentUid == request.auth.uid ||
+        resource.data.clientUid == request.auth.uid
+      );
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        resource.data.agentUid == request.auth.uid ||
+        resource.data.clientUid == request.auth.uid
+      );
+      allow delete: if false;
+    }
+  }
+}

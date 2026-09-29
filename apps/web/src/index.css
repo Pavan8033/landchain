@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-ivory text-midnight antialiased min-h-screen font-sans;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1, h2, h3, .font-serif {
+    font-family: 'DM Serif Display', Georgia, serif;
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #ECE7DD;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #C6A66B;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #A6864C;
+}
+
+/* Luxury Accent Gradients & Borders */
+.gold-gradient {
+  background: linear-gradient(135deg, #C6A66B 0%, #E6D2B5 50%, #C6A66B 100%);
+}
+
+.navy-gradient {
+  background: linear-gradient(180deg, #101827 0%, #172231 100%);
+}
+
+.card-luxury {
+  background: #FFFFFF;
+  border: 1px solid rgba(198, 166, 107, 0.25);
+  box-shadow: 0 4px 20px -2px rgba(16, 24, 39, 0.05);
+}
+
+.card-luxury:hover {
+  border-color: rgba(198, 166, 107, 0.5);
+  box-shadow: 0 8px 25px -4px rgba(16, 24, 39, 0.08);
+}

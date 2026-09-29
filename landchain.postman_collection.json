@@ -1,0 +1,251 @@
+{
+  "info": {
+    "_postman_id": "b7891234-abcd-ef01-2345-6789abcdef01",
+    "name": "LandChain Land Registry System API",
+    "description": "Postman API Collection for LANDCHAIN — Complete Blockchain-Based Land Registry Management System (Academic Prototype). Tested against Node.js Express Backend.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api",
+      "type": "string"
+    },
+    {
+      "key": "sellerToken",
+      "value": "demo-seller-token",
+      "type": "string"
+    },
+    {
+      "key": "buyerToken",
+      "value": "demo-buyer-token",
+      "type": "string"
+    },
+    {
+      "key": "govToken",
+      "value": "demo-gov-token",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01. System Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        },
+        "description": "Verifies that the backend API, in-memory/MongoDB persistence, and Ethereum RPC provider are operational."
+      }
+    },
+    {
+      "name": "02. Public Land Records Search",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/records/search?q=Bengaluru&category=RESIDENTIAL",
+          "host": ["{{baseUrl}}"],
+          "path": ["records", "search"],
+          "query": [
+            { "key": "q", "value": "Bengaluru" },
+            { "key": "category", "value": "RESIDENTIAL" }
+          ]
+        },
+        "description": "Public search for verified land parcels with filtering by locality or category."
+      }
+    },
+    {
+      "name": "03. Get Land Record Details",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/records/LAND-KA-BLR-001",
+          "host": ["{{baseUrl}}"],
+          "path": ["records", "LAND-KA-BLR-001"]
+        },
+        "description": "Retrieves public metadata, current recorded owner wallet, smart contract address, and transaction hash."
+      }
+    },
+    {
+      "name": "04. Stream Digital PDF Certificate",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/records/LAND-KA-BLR-001/certificate",
+          "host": ["{{baseUrl}}"],
+          "path": ["records", "LAND-KA-BLR-001", "certificate"]
+        },
+        "description": "Generates and streams a vector PDF demonstration certificate with gold seal, QR verification code, on-chain hash, and IPFS CID."
+      }
+    },
+    {
+      "name": "05. Submit Land Application (Seller)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-demo-role", "value": "seller" },
+          { "key": "Authorization", "value": "Bearer {{sellerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"surveyNumber\": \"SY-992/4B\",\n  \"state\": \"Karnataka\",\n  \"district\": \"Bengaluru Urban\",\n  \"locality\": \"Whitefield\",\n  \"areaSqMeters\": 1800,\n  \"measurementUnit\": \"SQ_METERS\",\n  \"landCategory\": \"RESIDENTIAL\",\n  \"description\": \"Prime corner residential parcel with verified mutation register extract.\",\n  \"applicantWallet\": \"0x70997970C51812dc3A010C7d01b50e0d17dc79C8\",\n  \"documents\": [\n    {\n      \"documentId\": \"DOC-1727500000000\",\n      \"title\": \"Registered Sale Deed & BBMP Khata\",\n      \"category\": \"TITLE_DEED\",\n      \"storagePath\": \"documents/seller-1/title_deed.pdf\",\n      \"fileSize\": 1048576,\n      \"mimeType\": \"application/pdf\",\n      \"sha256Hash\": \"0x4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\",\n      \"ipfsCid\": \"QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco\",\n      \"ipfsUrl\": \"https://ipfs.io/ipfs/QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/applications",
+          "host": ["{{baseUrl}}"],
+          "path": ["applications"]
+        },
+        "description": "Submits a new 4-step land registration application with client-computed SHA-256 hash and IPFS CID."
+      }
+    },
+    {
+      "name": "06. Get My Applications (Seller)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "x-demo-role", "value": "seller" },
+          { "key": "Authorization", "value": "Bearer {{sellerToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/applications/my",
+          "host": ["{{baseUrl}}"],
+          "path": ["applications", "my"]
+        },
+        "description": "Retrieves registration applications submitted by the authenticated seller."
+      }
+    },
+    {
+      "name": "07. Government Pending Review Queue",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "x-demo-role", "value": "government" },
+          { "key": "Authorization", "value": "Bearer {{govToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/applications/pending",
+          "host": ["{{baseUrl}}"],
+          "path": ["applications", "pending"]
+        },
+        "description": "Awaiting applications for government registrar scrutiny and verification checklist."
+      }
+    },
+    {
+      "name": "08. Government Review Application (Approve/Reject)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-demo-role", "value": "government" },
+          { "key": "Authorization", "value": "Bearer {{govToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"APPROVED_PENDING_BLOCKCHAIN\",\n  \"reviewNotes\": \"Boundary coordinates verified against revenue cadastre. Non-encumbrance confirmed.\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/applications/app-demo-001/review",
+          "host": ["{{baseUrl}}"],
+          "path": ["applications", "app-demo-001", "review"]
+        },
+        "description": "Authorizes or rejects an application with official notes."
+      }
+    },
+    {
+      "name": "09. Initiate Transfer Request (Seller)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-demo-role", "value": "seller" },
+          { "key": "Authorization", "value": "Bearer {{sellerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"landId\": \"LAND-KA-BLR-001\",\n  \"buyerEmail\": \"buyer@landchain.demo\",\n  \"buyerWallet\": \"0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC\",\n  \"agreedPrice\": 12500000\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/transfers",
+          "host": ["{{baseUrl}}"],
+          "path": ["transfers"]
+        },
+        "description": "Seller initiates ownership transfer to designated buyer."
+      }
+    },
+    {
+      "name": "10. Incoming Transfers Inbox (Buyer)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "x-demo-role", "value": "buyer" },
+          { "key": "Authorization", "value": "Bearer {{buyerToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/transfers/incoming",
+          "host": ["{{baseUrl}}"],
+          "path": ["transfers", "incoming"]
+        },
+        "description": "Buyer views incoming transfer offers awaiting explicit acceptance or rejection."
+      }
+    },
+    {
+      "name": "11. Explicit Buyer Consent (Accept / Reject)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-demo-role", "value": "buyer" },
+          { "key": "Authorization", "value": "Bearer {{buyerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"decision\": \"ACCEPT\",\n  \"notes\": \"Terms accepted, proceeding with government registration authorization.\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/transfers/TR-DEMO-001/respond",
+          "host": ["{{baseUrl}}"],
+          "path": ["transfers", "TR-DEMO-001", "respond"]
+        },
+        "description": "Buyer explicitly consents to or rejects the land transfer request."
+      }
+    },
+    {
+      "name": "12. Government Audit Trail",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "x-demo-role", "value": "government" },
+          { "key": "Authorization", "value": "Bearer {{govToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/audit",
+          "host": ["{{baseUrl}}"],
+          "path": ["audit"]
+        },
+        "description": "Immutable log of privileged actions, reviews, on-chain minting events, and transfers."
+      }
+    },
+    {
+      "name": "13. Agent Properties & Enquiries",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "x-demo-role", "value": "agent" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/agent/records",
+          "host": ["{{baseUrl}}"],
+          "path": ["agent", "records"]
+        },
+        "description": "Real estate agent directory of verified properties and active inquiries."
+      }
+    }
+  ]
+}

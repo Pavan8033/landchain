@@ -1,0 +1,35 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isGovernment() {
+      return isAuthenticated() && 
+        (request.auth.token.role == 'government' || request.auth.token.government == true);
+    }
+
+    // Land supporting ownership documents:
+    // /documents/{userId}/{applicationId}/{fileName}
+    match /documents/{userId}/{applicationId}/{fileName} {
+      // Only the uploader or a government verifier can read private property deeds/proofs
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isGovernment());
+
+      // Only the authenticated user can upload their own documents
+      // Enforce file size limit (max 15MB) and permitted file types (PDF, PNG, JPEG)
+      allow write: if isAuthenticated() &&
+        request.auth.uid == userId &&
+        request.resource.size < 15 * 1024 * 1024 &&
+        request.resource.contentType.matches('application/pdf|image/jpeg|image/png');
+    }
+
+    // Public demonstration certificates:
+    // /certificates/{landId}/{certFile}
+    match /certificates/{landId}/{certFile} {
+      allow read: if true; // Publicly verifiable academic certificates
+      allow write: if isGovernment(); // Only authorized government/backend can generate & upload
+    }
+  }
+}

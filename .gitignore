@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build Outputs & Cache
+dist/
+build/
+.cache/
+coverage/
+.artifacts/
+cache/
+artifacts/
+*.log
+.tsbuildinfo
+
+# Environment & Secret Files (CRITICAL - NEVER COMMIT)
+.env
+.env.*
+*.env
+serviceAccountKey.json
+*serviceAccountKey*.json
+*firebase-adminsdk*.json
+**/serviceAccountKey.json
+**/.env
+**/.env.*
+**/*.env
+privateKey*.txt
+*.pem
+
+# IDE & OS Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

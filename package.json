@@ -1,0 +1,38 @@
+{
+  "name": "landchain-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LANDCHAIN - Complete Blockchain-Based Land Registry Management System (Academic Prototype)",
+  "workspaces": [
+    "apps/web",
+    "apps/api",
+    "blockchain"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=apps/api\" \"npm run dev --workspace=apps/web\"",
+    "dev:all": "concurrently \"npm run dev --workspace=apps/api\" \"npm run dev --workspace=apps/web\"",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:api": "npm run dev --workspace=apps/api",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "blockchain:node": "npm run node --workspace=blockchain",
+    "blockchain:deploy": "npm run deploy:local --workspace=blockchain",
+    "blockchain:test": "npm run test --workspace=blockchain"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "keywords": [
+    "blockchain",
+    "land-registry",
+    "solidity",
+    "ethereum",
+    "hardhat",
+    "react",
+    "vite",
+    "express",
+    "firebase"
+  ],
+  "author": "LandChain Engineering",
+  "license": "MIT"
+}
