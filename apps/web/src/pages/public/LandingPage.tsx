@@ -166,7 +166,7 @@ export const LandingPage: React.FC = () => {
           </Card>
 
           <Card className="text-left hover:-translate-y-1 transition-transform">
-            <div className="w-12 h-12 rounded-lg bg-blue-50 text-muted-blue flex items-center justify-center mb-4">
+            <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center mb-4">
               <FileCheck2 className="w-6 h-6" />
             </div>
             <h3 className="font-serif text-lg font-bold text-midnight mb-2">

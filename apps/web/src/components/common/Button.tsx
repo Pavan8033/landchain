@@ -31,15 +31,15 @@ export const Button: React.FC<ButtonProps> = ({
 
   const variantStyles = {
     primary:
-      "bg-gold text-midnight hover:bg-gold-hover hover:shadow-gold focus:ring-gold font-semibold shadow-sm",
+      `bg-gold ${className.includes("text-") ? "" : "text-midnight"} hover:bg-gold-hover hover:shadow-gold focus:ring-gold font-semibold shadow-sm`,
     secondary:
-      "bg-midnight text-white hover:bg-slate-navy focus:ring-midnight border border-slate-navy/40",
+      `bg-midnight ${className.includes("text-") ? "" : "text-white"} hover:bg-slate-navy focus:ring-midnight border border-slate-navy/40`,
     outline:
-      "bg-transparent border border-gold text-midnight hover:bg-gold/10 focus:ring-gold font-medium",
+      `bg-transparent border border-gold ${className.includes("text-") ? "" : "text-slate-800"} hover:bg-gold/10 focus:ring-gold font-medium`,
     danger:
-      "bg-status-error text-white hover:bg-red-700 focus:ring-status-error shadow-sm",
+      `bg-status-error ${className.includes("text-") ? "" : "text-white"} hover:bg-red-700 focus:ring-status-error shadow-sm`,
     ghost:
-      "bg-transparent text-slate-navy hover:bg-ivory-200 focus:ring-gold",
+      `bg-transparent ${className.includes("text-") ? "" : "text-slate-700"} hover:bg-ivory-200 focus:ring-gold`,
   };
 
   return (

@@ -34,24 +34,6 @@ export const RegisterLandWizardPage: React.FC = () => {
   const [submitResult, setSubmitResult] = useState<any>(null);
   const [copiedHash, setCopiedHash] = useState(false);
 
-  // Storage Capability Detection
-  const [storageAvailable, setStorageAvailable] = useState<boolean>(false);
-  const [storageChecked, setStorageChecked] = useState<boolean>(false);
-
-  useEffect(() => {
-    api
-      .getHealth()
-      .then((health) => {
-        const isAvail = health.storage?.enabled === true || health.storageMode === "AVAILABLE";
-        setStorageAvailable(isAvail);
-        setStorageChecked(true);
-      })
-      .catch(() => {
-        setStorageAvailable(false);
-        setStorageChecked(true);
-      });
-  }, []);
-
   // STEP 1 Form State: Land Details
   const [surveyNumber, setSurveyNumber] = useState("SY-502/7A");
   const [locality, setLocality] = useState("Whitefield, Bengaluru");
@@ -163,10 +145,8 @@ export const RegisterLandWizardPage: React.FC = () => {
             title: docTitle,
             category: "TITLE_DEED",
             fileName: docFileName || "Registered_Sale_Deed_BBMP_Khata.pdf",
-            storagePath: storageAvailable
-              ? `documents/${user?.uid || "demo-seller"}/${docFileName}`
-              : `documents/hash-only/${docFileName}`,
-            storageStatus: storageAvailable ? "STORED" : "STORAGE_UNAVAILABLE",
+            storagePath: `documents/${user?.uid || "demo-seller"}/${docFileName}`,
+            storageStatus: "STORED",
             fileSize: fileSize || 1024,
             mimeType: selectedFile?.type || "application/pdf",
             sha256Hash: docHash.startsWith("0x") ? docHash : `0x${docHash}`,
@@ -538,21 +518,6 @@ export const RegisterLandWizardPage: React.FC = () => {
               </p>
             </div>
 
-            {/* Professional Notice when Cloud Storage is unavailable */}
-            {!storageAvailable && (
-              <div className="p-3.5 bg-ivory-100 rounded-xl border border-ivory-300 flex items-start space-x-3 text-left">
-                <div className="p-1.5 bg-ivory-200 text-slate-navy rounded-lg mt-0.5 shrink-0">
-                  <ShieldCheck className="w-4 h-4 text-gold-dark" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-midnight">Cloud Document Storage Notice</h4>
-                  <p className="text-xs text-muted-slate mt-0.5 leading-relaxed">
-                    Cloud document storage is currently unavailable. The document integrity hash will still be calculated and recorded for verification.
-                  </p>
-                </div>
-              </div>
-            )}
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block font-semibold text-slate-navy mb-1">
@@ -618,17 +583,10 @@ export const RegisterLandWizardPage: React.FC = () => {
                     <div className="text-[10px] text-muted-slate flex flex-wrap items-center gap-1.5 mt-0.5">
                       <span>File Size: {(fileSize / (1024 * 1024)).toFixed(2)} MB</span>
                       <span>•</span>
-                      {storageAvailable ? (
-                        <span className="text-emerald-700 font-semibold flex items-center">
-                          <CheckCircle2 className="w-3 h-3 mr-1" />
-                          Document uploaded to Cloud Storage
-                        </span>
-                      ) : (
-                        <span className="text-emerald-800 font-semibold flex items-center bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                          <ShieldCheck className="w-3 h-3 mr-1 text-emerald-600" />
-                          Document integrity hash recorded
-                        </span>
-                      )}
+                      <span className="text-emerald-800 font-semibold flex items-center bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                        <ShieldCheck className="w-3 h-3 mr-1 text-emerald-600" />
+                        Document integrity hash recorded
+                      </span>
                     </div>
                   </div>
                   <Button

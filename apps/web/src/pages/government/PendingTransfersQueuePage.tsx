@@ -215,8 +215,8 @@ export const PendingTransfersQueuePage: React.FC = () => {
               />
             </div>
 
-            <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-muted-blue leading-relaxed">
-              <strong>Execution Notice:</strong> Submitting authorization will trigger the smart contract function <code>authorizeTransfer</code>. The immutable on-chain record will reassign ownership to the buyer's wallet, increment the transfer counter, and issue an updated certificate.
+            <div className="p-3.5 rounded-xl bg-blue-50/90 border border-blue-200 text-blue-950 text-xs leading-relaxed">
+              <strong className="text-blue-900 font-bold">Execution Notice:</strong> Submitting authorization will trigger the smart contract function <code className="bg-blue-100/90 text-blue-900 px-1 py-0.5 rounded font-mono text-[11px] font-bold">authorizeTransfer</code>. The immutable on-chain record will reassign ownership to the buyer's wallet, increment the transfer counter, and issue an updated certificate.
             </div>
 
             <div className="pt-2 flex justify-end space-x-2">

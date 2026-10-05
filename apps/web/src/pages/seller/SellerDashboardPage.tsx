@@ -124,7 +124,7 @@ export const SellerDashboardPage: React.FC = () => {
                 {activeTransfersCount}
               </span>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-blue-50 text-muted-blue flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
               <ArrowRightLeft className="w-6 h-6" />
             </div>
           </div>
