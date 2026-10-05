@@ -309,6 +309,13 @@ router.put(
         return res.status(404).json({ success: false, error: `Application ${id} not found.` });
       }
 
+      if (app.status === "VERIFIED_ON_CHAIN") {
+        return res.status(400).json({
+          success: false,
+          error: "Application is already verified on blockchain and cannot be re-reviewed.",
+        });
+      }
+
       const updates: Partial<LandApplication> = {
         status: validated.status,
         reviewNotes: validated.reviewNotes,

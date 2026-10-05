@@ -43,7 +43,9 @@ export const CreateTransferPage: React.FC = () => {
   const [onChainVerified, setOnChainVerified] = useState(false);
   const [checkingBlockchain, setCheckingBlockchain] = useState(false);
 
-  // Buyer Details
+  // Buyer Details & Transfer Type
+  const [transferType, setTransferType] = useState<"SALE" | "PURCHASE" | "INHERITANCE">("SALE");
+  const [transferReason, setTransferReason] = useState("");
   const [buyerEmail, setBuyerEmail] = useState("buyer@landchain.demo");
   const [buyerWallet, setBuyerWallet] = useState("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC");
   const [agreedPrice, setAgreedPrice] = useState<number>(12500000);
@@ -128,6 +130,9 @@ export const CreateTransferPage: React.FC = () => {
         buyerEmail,
         buyerWallet,
         agreedPrice,
+        currency: "INR",
+        transferType,
+        transferReason: transferReason || `Ownership transfer (${transferType}) initiated by seller.`,
       });
 
       setCreatedTransfer(transfer);
@@ -432,25 +437,57 @@ export const CreateTransferPage: React.FC = () => {
               </p>
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block font-semibold text-slate-navy mb-1">
+                  Transfer Type * (Land Transfer Management)
+                </label>
+                <select
+                  value={transferType}
+                  onChange={(e) => setTransferType(e.target.value as any)}
+                  className="w-full p-2.5 border border-ivory-300 rounded-md text-xs font-semibold focus:ring-1 focus:ring-gold bg-white"
+                >
+                  <option value="SALE">Sale (Direct Property Sale)</option>
+                  <option value="PURCHASE">Purchase (Buyer Acquisition)</option>
+                  <option value="INHERITANCE">Inheritance (Succession Transfer)</option>
+                </select>
+                <span className="text-[10px] text-muted-slate block mt-1">
+                  Categorized under Application Layer: Land Transfer Management
+                </span>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-navy mb-1">
+                  Agreed Consideration Price (INR) *
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  required
+                  value={agreedPrice}
+                  onChange={(e) => setAgreedPrice(Number(e.target.value))}
+                  placeholder="12500000"
+                  className="w-full p-2.5 border border-ivory-300 rounded-md text-xs focus:ring-1 focus:ring-gold"
+                />
+                <div className="mt-1 flex items-center justify-between text-[11px]">
+                  <span className="font-bold text-midnight">
+                    Display: ₹{Number(agreedPrice || 0).toLocaleString("en-IN")}
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <div>
               <label className="block font-semibold text-slate-navy mb-1">
-                Agreed Price (INR) *
+                Transfer Reason / Legal Context (Optional)
               </label>
               <input
-                type="number"
-                min="1"
-                required
-                value={agreedPrice}
-                onChange={(e) => setAgreedPrice(Number(e.target.value))}
-                placeholder="12500000"
+                type="text"
+                value={transferReason}
+                onChange={(e) => setTransferReason(e.target.value)}
+                placeholder="e.g. Registered Sale Agreement executed, Family partition deed, etc."
                 className="w-full p-2.5 border border-ivory-300 rounded-md text-xs focus:ring-1 focus:ring-gold"
               />
-              <div className="mt-1 flex items-center justify-between text-[11px]">
-                <span className="font-bold text-midnight">
-                  Display Price: ₹{Number(agreedPrice || 0).toLocaleString("en-IN")}
-                </span>
-                <span className="text-muted-slate">Recorded as application conveyance consideration</span>
-              </div>
             </div>
 
             {/* Warning Note */}

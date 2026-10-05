@@ -46,7 +46,7 @@ export const BuyerDashboardPage: React.FC = () => {
           <h1 className="font-serif text-2xl sm:text-3xl font-bold">
             Welcome, {user?.displayName}
           </h1>
-          <p className="text-xs text-ivory-200 mt-1 max-w-xl">
+          <p className="text-xs text-slate-200 font-medium mt-1 max-w-xl">
             Explore verified land records, inspect unbroken on-chain title chains, and respond to incoming ownership transfer offers.
           </p>
         </div>

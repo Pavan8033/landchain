@@ -17,18 +17,19 @@ const router = Router();
 
 /**
  * POST /api/transfers
- * Seller initiates a new ownership transfer request
+ * Seller or Buyer initiates a new ownership transfer / acquisition request
+ * Application Layer: Land Transfer Management (Sale / Purchase / Inheritance)
  */
 router.post(
   "/",
   authenticate,
-  requireRole(["seller"]),
+  requireRole(["seller", "buyer"]),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const validated = CreateTransferRequestSchema.parse(req.body);
       const user = req.user!;
 
-      // Verify seller owns this land record in database projection
+      // Verify land record exists in database projection
       let record: LandRecord | null = null;
       if (isUsingRealFirebase) {
         const doc = await admin.firestore().collection("landRecords").doc(validated.landId).get();
@@ -41,40 +42,43 @@ router.post(
         return sendApiError(res, 404, "NOT_FOUND", `Land record ${validated.landId} not found.`);
       }
 
-      if (
-        record.currentOwnerUid !== user.uid &&
-        record.currentOwnerWallet.toLowerCase() !== (user.walletAddress || "").toLowerCase()
-      ) {
-        return sendApiError(
-          res,
-          403,
-          "OWNER_MISMATCH",
-          "Unauthorized. You are not the recorded owner of this land parcel."
-        );
-      }
-
-      // Check on-chain ownership authority (Requirement 9: Seller Ownership Verification)
-      try {
-        const onChain = await getLandOnChain(validated.landId);
-        if (onChain && onChain.currentOwner) {
-          const onChainOwner = ethers.isAddress(onChain.currentOwner)
-            ? ethers.getAddress(onChain.currentOwner)
-            : onChain.currentOwner.toLowerCase();
-          const sellerWallet = ethers.isAddress(user.walletAddress || record.currentOwnerWallet)
-            ? ethers.getAddress(user.walletAddress || record.currentOwnerWallet)
-            : (user.walletAddress || record.currentOwnerWallet).toLowerCase();
-
-          if (onChainOwner !== sellerWallet) {
-            return sendApiError(
-              res,
-              403,
-              "OWNER_MISMATCH",
-              `Blockchain verification rejected transfer: On-chain owner (${onChainOwner}) does not match your seller wallet (${sellerWallet}).`
-            );
-          }
+      // If initiator is seller: check ownership
+      if (user.role === "seller") {
+        if (
+          record.currentOwnerUid !== user.uid &&
+          record.currentOwnerWallet.toLowerCase() !== (user.walletAddress || "").toLowerCase()
+        ) {
+          return sendApiError(
+            res,
+            403,
+            "OWNER_MISMATCH",
+            "Unauthorized. You are not the recorded owner of this land parcel."
+          );
         }
-      } catch (chainErr: any) {
-        // Fallback for tests when local hardhat node is not started
+
+        // Check on-chain ownership authority (Requirement 9: Seller Ownership Verification)
+        try {
+          const onChain = await getLandOnChain(validated.landId);
+          if (onChain && onChain.currentOwner) {
+            const onChainOwner = ethers.isAddress(onChain.currentOwner)
+              ? ethers.getAddress(onChain.currentOwner)
+              : onChain.currentOwner.toLowerCase();
+            const sellerWallet = ethers.isAddress(user.walletAddress || record.currentOwnerWallet)
+              ? ethers.getAddress(user.walletAddress || record.currentOwnerWallet)
+              : (user.walletAddress || record.currentOwnerWallet).toLowerCase();
+
+            if (onChainOwner !== sellerWallet) {
+              return sendApiError(
+                res,
+                403,
+                "OWNER_MISMATCH",
+                `Blockchain verification rejected transfer: On-chain owner (${onChainOwner}) does not match your seller wallet (${sellerWallet}).`
+              );
+            }
+          }
+        } catch (chainErr: any) {
+          // Fallback for tests when local hardhat node is not started
+        }
       }
 
       // Check for existing pending transfer on this land
@@ -103,65 +107,131 @@ router.post(
         });
       }
 
-      // Resolve buyer UID by email if present
-      let resolvedBuyerUid = "buyer-456";
-      if (isUsingRealFirebase) {
-        const userSnap = await admin
-          .firestore()
-          .collection("users")
-          .where("email", "==", validated.buyerEmail)
-          .limit(1)
-          .get();
-        if (!userSnap.empty) {
-          resolvedBuyerUid = userSnap.docs[0].id;
-        }
-      }
-
       const transferId = `LC-TRF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-      const newTransfer: TransferRequest = {
-        id: transferId,
-        transferId,
-        landId: validated.landId,
-        sellerUid: user.uid,
-        sellerEmail: user.email,
-        sellerWallet: user.walletAddress || record.currentOwnerWallet,
-        buyerUid: resolvedBuyerUid,
-        buyerEmail: validated.buyerEmail,
-        buyerWallet: validated.buyerWallet,
-        agreedPrice: validated.agreedPrice,
-        currency: validated.currency,
-        status: "PENDING_BUYER",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+      const nowIso = new Date().toISOString();
 
-      if (isUsingRealFirebase) {
-        await admin.firestore().collection("transferRequests").doc(transferId).set(newTransfer);
-      } else {
-        memoryStore.setDoc("transferRequests", transferId, newTransfer);
-      }
+      let newTransfer: TransferRequest;
 
-      await logAuditEvent({
-        actorUid: user.uid,
-        actorEmail: user.email,
-        actorRole: user.role,
-        action: "TRANSFER_REQUEST_INITIATED",
-        targetType: "TRANSFER",
-        targetId: transferId,
-        metadata: {
+      if (user.role === "buyer") {
+        // Buyer initiated purchase / acquisition flow
+        newTransfer = {
+          id: transferId,
+          transferId,
           landId: validated.landId,
-          buyerEmail: validated.buyerEmail,
-          buyerWallet: validated.buyerWallet,
-        },
-      });
+          transferType: validated.transferType || "PURCHASE",
+          initiatedBy: "buyer",
+          transferReason: validated.transferReason || "Direct purchase / acquisition request initiated by buyer.",
+          sellerUid: record.currentOwnerUid,
+          sellerEmail: record.currentOwnerEmail || "seller@landchain.gov",
+          sellerWallet: record.currentOwnerWallet,
+          buyerUid: user.uid,
+          buyerEmail: user.email,
+          buyerWallet: validated.buyerWallet || user.walletAddress || "0x0000000000000000000000000000000000000000",
+          agreedPrice: validated.agreedPrice || 0,
+          agreedPriceInr: validated.agreedPrice || 0,
+          currency: validated.currency || "INR",
+          status: "PENDING_GOVERNMENT",
+          buyerConsentAt: nowIso,
+          buyerConsentBy: user.uid,
+          buyerNotes: validated.transferReason || "Purchase offer initiated and pre-consented by buyer.",
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        };
 
-      await sendNotification({
-        recipientUid: resolvedBuyerUid,
-        type: "TRANSFER_REQUEST",
-        title: "Incoming Land Transfer Offer",
-        message: `${user.email} initiated an ownership transfer for parcel ${validated.landId}. Please review and accept or reject.`,
-        actionUrl: `/transfers/${transferId}`,
-      });
+        if (isUsingRealFirebase) {
+          await admin.firestore().collection("transferRequests").doc(transferId).set(newTransfer);
+        } else {
+          memoryStore.setDoc("transferRequests", transferId, newTransfer);
+        }
+
+        await logAuditEvent({
+          actorUid: user.uid,
+          actorEmail: user.email,
+          actorRole: user.role,
+          action: "BUYER_PURCHASE_INITIATED",
+          targetType: "TRANSFER",
+          targetId: transferId,
+          metadata: {
+            landId: validated.landId,
+            sellerEmail: record.currentOwnerEmail,
+            sellerWallet: record.currentOwnerWallet,
+            agreedPrice: validated.agreedPrice,
+            transferType: validated.transferType || "PURCHASE",
+          },
+        });
+
+        await sendNotification({
+          recipientUid: record.currentOwnerUid,
+          type: "TRANSFER_REQUEST",
+          title: "Incoming Land Purchase Request",
+          message: `${user.email} initiated a purchase request for parcel ${validated.landId} (${validated.transferType || "PURCHASE"}). Forwarded to Government Authority for verification.`,
+          actionUrl: `/transfers/${transferId}`,
+        });
+      } else {
+        // Seller initiated flow
+        let resolvedBuyerUid = "buyer-456";
+        if (isUsingRealFirebase && validated.buyerEmail) {
+          const userSnap = await admin
+            .firestore()
+            .collection("users")
+            .where("email", "==", validated.buyerEmail)
+            .limit(1)
+            .get();
+          if (!userSnap.empty) {
+            resolvedBuyerUid = userSnap.docs[0].id;
+          }
+        }
+
+        newTransfer = {
+          id: transferId,
+          transferId,
+          landId: validated.landId,
+          transferType: validated.transferType || "SALE",
+          initiatedBy: "seller",
+          transferReason: validated.transferReason || "Land ownership transfer initiated by seller.",
+          sellerUid: user.uid,
+          sellerEmail: user.email,
+          sellerWallet: user.walletAddress || record.currentOwnerWallet,
+          buyerUid: resolvedBuyerUid,
+          buyerEmail: validated.buyerEmail || "",
+          buyerWallet: validated.buyerWallet || "0x0000000000000000000000000000000000000000",
+          agreedPrice: validated.agreedPrice || 0,
+          agreedPriceInr: validated.agreedPrice || 0,
+          currency: validated.currency || "INR",
+          status: "PENDING_BUYER",
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        };
+
+        if (isUsingRealFirebase) {
+          await admin.firestore().collection("transferRequests").doc(transferId).set(newTransfer);
+        } else {
+          memoryStore.setDoc("transferRequests", transferId, newTransfer);
+        }
+
+        await logAuditEvent({
+          actorUid: user.uid,
+          actorEmail: user.email,
+          actorRole: user.role,
+          action: "TRANSFER_REQUEST_INITIATED",
+          targetType: "TRANSFER",
+          targetId: transferId,
+          metadata: {
+            landId: validated.landId,
+            buyerEmail: validated.buyerEmail,
+            buyerWallet: validated.buyerWallet,
+            transferType: validated.transferType || "SALE",
+          },
+        });
+
+        await sendNotification({
+          recipientUid: resolvedBuyerUid,
+          type: "TRANSFER_REQUEST",
+          title: "Incoming Land Transfer Offer",
+          message: `${user.email} initiated an ownership transfer (${validated.transferType || "SALE"}) for parcel ${validated.landId}. Please review and accept or reject.`,
+          actionUrl: `/transfers/${transferId}`,
+        });
+      }
 
       return res.status(201).json({ success: true, data: newTransfer });
     } catch (err) {

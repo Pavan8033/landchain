@@ -81,14 +81,14 @@ export const Navbar: React.FC = () => {
 
           {/* Public Nav Links */}
           <nav className="hidden md:flex items-center space-x-5 text-xs uppercase tracking-wider font-semibold">
-            <Link to="/search" className="text-ivory-200 hover:text-gold transition-colors flex items-center">
+            <Link to="/search" className="text-slate-200 hover:text-gold transition-colors flex items-center">
               <Search className="w-3.5 h-3.5 mr-1" />
               Search Registry
             </Link>
-            <Link to="/how-it-works" className="text-ivory-200 hover:text-gold transition-colors">
+            <Link to="/how-it-works" className="text-slate-200 hover:text-gold transition-colors">
               How It Works
             </Link>
-            <Link to="/about" className="text-ivory-200 hover:text-gold transition-colors">
+            <Link to="/about" className="text-slate-200 hover:text-gold transition-colors">
               About
             </Link>
             {isAuthenticated && (

@@ -90,6 +90,8 @@ export interface LandRecord {
   updatedAt: string;
 }
 
+export type TransferType = "SALE" | "PURCHASE" | "INHERITANCE";
+
 export type TransferStatus =
   | "PENDING_BUYER"
   | "ACCEPTED_BY_BUYER"
@@ -105,6 +107,9 @@ export interface TransferRequest {
   id: string;
   transferId: string;
   landId: string;
+  transferType?: TransferType;
+  initiatedBy?: "seller" | "buyer";
+  transferReason?: string;
   sellerUid: string;
   sellerEmail: string;
   sellerWallet: string;

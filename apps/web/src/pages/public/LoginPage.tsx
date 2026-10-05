@@ -62,7 +62,7 @@ export const LoginPage: React.FC = () => {
           <Sparkles className="w-4 h-4" />
           <span>Instant Evaluator Demo Login</span>
         </div>
-        <p className="text-[11px] text-ivory-200/80 mb-4 leading-relaxed">
+        <p className="text-xs text-slate-200 font-medium mb-4 leading-relaxed">
           Click any role below to instantly load a simulated demo session with preloaded test data:
         </p>
 

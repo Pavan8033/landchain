@@ -75,14 +75,14 @@ export const Sidebar: React.FC = () => {
           {!collapsed && (
             <div className="flex items-center space-x-2">
               <Shield className="w-4 h-4 text-gold" />
-              <span className="text-xs uppercase tracking-wider font-bold text-ivory-200">
+              <span className="text-xs uppercase tracking-wider font-bold text-slate-200">
                 {role} Portal
               </span>
             </div>
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="p-1 rounded text-muted-slate hover:text-gold hover:bg-slate-navy/50 transition-colors mx-auto"
+            className="p-1 rounded text-slate-300 hover:text-gold hover:bg-slate-navy/50 transition-colors mx-auto"
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -100,8 +100,8 @@ export const Sidebar: React.FC = () => {
                 className={({ isActive }) =>
                   `flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
                     isActive
-                      ? "bg-gold text-midnight font-bold shadow-gold"
-                      : "text-ivory-200 hover:text-white hover:bg-slate-navy/60"
+                      ? "bg-gold text-slate-950 font-bold shadow-gold"
+                      : "text-slate-200 hover:text-white hover:bg-slate-navy/60"
                   } ${collapsed ? "justify-center px-0" : ""}`
                 }
                 title={collapsed ? item.label : undefined}
@@ -116,9 +116,9 @@ export const Sidebar: React.FC = () => {
 
       {/* Sidebar Footer info */}
       {!collapsed && (
-        <div className="p-4 border-t border-slate-navy/40 text-[10px] text-muted-slate">
-          <p className="font-semibold text-ivory-300">Hardhat Local (31337)</p>
-          <p className="truncate mt-0.5 font-mono text-[9px] text-gold/70">
+        <div className="p-4 border-t border-slate-navy/40 text-[10px] text-slate-300">
+          <p className="font-bold text-slate-200">Hardhat Local (31337)</p>
+          <p className="truncate mt-0.5 font-mono text-[9px] text-gold font-medium">
             0x5FbDB2315678afecb367f032d93F642f64180aa3
           </p>
         </div>

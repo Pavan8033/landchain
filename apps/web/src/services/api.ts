@@ -273,7 +273,15 @@ class ApiClient {
   }
 
   // --- Transfer APIs ---
-  async createTransfer(payload: { landId: string; buyerEmail: string; buyerWallet: string; agreedPrice?: number }): Promise<TransferRequest> {
+  async createTransfer(payload: {
+    landId: string;
+    buyerEmail?: string;
+    buyerWallet?: string;
+    agreedPrice?: number;
+    currency?: string;
+    transferType?: "SALE" | "PURCHASE" | "INHERITANCE";
+    transferReason?: string;
+  }): Promise<TransferRequest> {
     return this.request<TransferRequest>("/transfers", {
       method: "POST",
       body: JSON.stringify(payload),

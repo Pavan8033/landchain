@@ -64,7 +64,7 @@ export const LandingPage: React.FC = () => {
             </span>
           </h1>
 
-          <p className="mt-6 text-base sm:text-lg text-ivory-200/90 max-w-2xl mx-auto font-sans leading-relaxed">
+          <p className="mt-6 text-base sm:text-lg text-slate-200 font-medium max-w-2xl mx-auto font-sans leading-relaxed">
             A decentralized, tamper-resistant land registry platform built on Ethereum smart contracts. Featuring multi-party verification, cryptographic deed hashing, and sovereign title provenance.
           </p>
 
@@ -79,7 +79,7 @@ export const LandingPage: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by Land ID (e.g., LAND-KA-BLR-001) or Locality..."
-                className="w-full bg-white text-midnight pl-12 pr-32 py-4 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-gold shadow-lg"
+                className="w-full bg-white text-slate-900 pl-12 pr-32 py-4 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-gold shadow-lg"
               />
               <div className="absolute right-2">
                 <Button type="submit" variant="primary" size="md">
@@ -87,23 +87,23 @@ export const LandingPage: React.FC = () => {
                 </Button>
               </div>
             </form>
-            <div className="flex items-center justify-center space-x-4 mt-3 text-xs text-ivory-300">
+            <div className="flex items-center justify-center space-x-4 mt-3 text-xs text-slate-200 font-medium">
               <span>Popular searches:</span>
               <button
                 onClick={() => setSearchQuery("LAND-KA-BLR-001")}
-                className="text-gold hover:underline font-mono"
+                className="text-amber-300 hover:underline font-mono font-bold"
               >
                 LAND-KA-BLR-001
               </button>
               <button
                 onClick={() => setSearchQuery("Indiranagar")}
-                className="text-gold hover:underline"
+                className="text-amber-300 hover:underline font-bold"
               >
                 Indiranagar
               </button>
               <button
                 onClick={() => setSearchQuery("Pune")}
-                className="text-gold hover:underline"
+                className="text-amber-300 hover:underline font-bold"
               >
                 Pune
               </button>

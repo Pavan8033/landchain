@@ -18,7 +18,11 @@ import {
   QrCode,
   ArrowRight,
   Clock,
+  ShoppingCart,
+  UserCheck,
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { useWallet } from "../../context/WalletContext";
 import { Button } from "../../components/common/Button";
 import { Card } from "../../components/common/Card";
 import { Badge, getStatusBadge } from "../../components/common/Badge";
@@ -29,6 +33,8 @@ import { LandRecord } from "../../types";
 
 export const PublicLandDetailsPage: React.FC = () => {
   const { landId } = useParams<{ landId: string }>();
+  const { user } = useAuth();
+  const { account } = useWallet();
   const [record, setRecord] = useState<LandRecord | null>(null);
   const [verification, setVerification] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
@@ -39,6 +45,15 @@ export const PublicLandDetailsPage: React.FC = () => {
   const [reconciling, setReconciling] = useState(false);
   const [verificationStep, setVerificationStep] = useState<string | null>(null);
   const [reconcileResult, setReconcileResult] = useState<any>(null);
+
+  // Buyer Purchase / Transfer Request Modal state
+  const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
+  const [purchaseType, setPurchaseType] = useState<"SALE" | "PURCHASE" | "INHERITANCE">("PURCHASE");
+  const [purchasePrice, setPurchasePrice] = useState<number>(15000000);
+  const [purchaseNotes, setPurchaseNotes] = useState("");
+  const [purchaseSubmitting, setPurchaseSubmitting] = useState(false);
+  const [purchaseSuccess, setPurchaseSuccess] = useState(false);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   // Enquiry Modal state
   const [enquiryModalOpen, setEnquiryModalOpen] = useState(false);
@@ -120,11 +135,36 @@ export const PublicLandDetailsPage: React.FC = () => {
     }
   };
 
+  const handlePurchaseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!record) return;
+    setPurchaseSubmitting(true);
+    setPurchaseError(null);
+    try {
+      await api.createTransfer({
+        landId: record.landId,
+        agreedPrice: Number(purchasePrice) || 0,
+        currency: "INR",
+        transferType: purchaseType,
+        transferReason: purchaseNotes || `Direct acquisition / purchase request initiated by buyer for parcel ${record.parcelNumber}.`,
+      });
+      setPurchaseSuccess(true);
+      setTimeout(() => {
+        setPurchaseSuccess(false);
+        setPurchaseModalOpen(false);
+      }, 2000);
+    } catch (err: any) {
+      setPurchaseError(err.message || "Failed to initiate purchase request.");
+    } finally {
+      setPurchaseSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-16 text-center">
         <RefreshCw className="w-8 h-8 mx-auto animate-spin text-gold mb-3" />
-        <p className="text-xs text-muted-slate font-medium">Querying verified ledger record...</p>
+        <p className="text-xs text-slate-700 font-medium">Querying verified ledger record...</p>
       </div>
     );
   }
@@ -132,8 +172,8 @@ export const PublicLandDetailsPage: React.FC = () => {
   if (!record) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-        <h2 className="font-serif text-2xl font-bold text-midnight mb-2">Record Not Found</h2>
-        <p className="text-xs text-muted-slate mb-6">
+        <h2 className="font-serif text-2xl font-bold text-slate-900 mb-2">Record Not Found</h2>
+        <p className="text-xs text-slate-600 mb-6">
           The requested land record ID could not be located in the published registry.
         </p>
         <Link to="/search">
@@ -167,16 +207,25 @@ export const PublicLandDetailsPage: React.FC = () => {
               </span>
               {getStatusBadge(record.verificationState)}
             </div>
-            <h1 className="font-serif text-3xl font-bold text-midnight">
+            <h1 className="font-serif text-3xl font-bold text-slate-900">
               {record.locality}
             </h1>
-            <p className="text-xs text-muted-slate mt-1 flex items-center">
+            <p className="text-xs text-slate-700 font-medium mt-1 flex items-center">
               <MapPin className="w-3.5 h-3.5 mr-1 text-gold" />
-              {record.district}, {record.state} • Survey / Parcel: <span className="font-mono font-bold ml-1 text-midnight">{record.parcelNumber}</span>
+              {record.district}, {record.state} • Survey / Parcel: <span className="font-mono font-bold ml-1 text-slate-900">{record.parcelNumber}</span>
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setPurchaseModalOpen(true)}
+              leftIcon={<ShoppingCart className="w-4 h-4 text-slate-950" />}
+            >
+              Initiate Purchase / Acquisition
+            </Button>
+
             <Button
               variant="outline"
               size="sm"
@@ -193,9 +242,9 @@ export const PublicLandDetailsPage: React.FC = () => {
               rel="noreferrer"
             >
               <Button
-                variant="primary"
+                variant="outline"
                 size="sm"
-                leftIcon={<Download className="w-3.5 h-3.5 text-midnight" />}
+                leftIcon={<Download className="w-3.5 h-3.5 text-slate-800" />}
               >
                 Download Certificate (PDF)
               </Button>
@@ -205,7 +254,7 @@ export const PublicLandDetailsPage: React.FC = () => {
               <Button
                 variant="outline"
                 size="sm"
-                leftIcon={<QrCode className="w-3.5 h-3.5 text-slate-navy" />}
+                leftIcon={<QrCode className="w-3.5 h-3.5 text-slate-800" />}
               >
                 Public QR View
               </Button>
@@ -448,16 +497,59 @@ export const PublicLandDetailsPage: React.FC = () => {
 
         {/* Right Column: Actions, Certificate & Agent Contact */}
         <div className="space-y-6">
-          {/* Certificate Card */}
-          <Card className="text-center p-6 bg-gradient-to-b from-white to-ivory-100">
-            <div className="w-14 h-14 mx-auto rounded-full bg-gold/15 text-gold-dark flex items-center justify-center mb-3">
-              <FileText className="w-7 h-7" />
+          {/* Land Buyer Purchase Workflow Card */}
+          <Card className="p-6 border-2 border-gold/60 bg-gradient-to-br from-white to-amber-50/50 shadow-md">
+            <div className="flex items-center space-x-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-gold/20 text-gold-dark flex items-center justify-center font-bold">
+                <ShoppingCart className="w-5 h-5 text-slate-900" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900">
+                  Land Buyer Workflow
+                </span>
+                <h3 className="font-serif text-base font-bold text-slate-900">
+                  Purchase This Parcel
+                </h3>
+              </div>
             </div>
-            <h3 className="font-serif text-lg font-bold text-midnight">
+            <p className="text-xs text-slate-700 mb-4 leading-relaxed font-medium">
+              Initiate an acquisition under <strong>Land Transfer Management (Sale / Purchase / Inheritance)</strong>.
+            </p>
+            <div className="space-y-2 mb-4 p-3 bg-white rounded-lg border border-amber-200 text-xs text-slate-800">
+              <div className="flex items-center space-x-2 text-emerald-800 font-bold">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>1. Buyer initiates purchase offer</span>
+              </div>
+              <div className="flex items-center space-x-2 text-slate-700">
+                <span className="w-4 h-4 flex items-center justify-center font-bold text-[10px] bg-slate-200 rounded-full shrink-0">2</span>
+                <span>Government verifies identity & docs</span>
+              </div>
+              <div className="flex items-center space-x-2 text-slate-700">
+                <span className="w-4 h-4 flex items-center justify-center font-bold text-[10px] bg-slate-200 rounded-full shrink-0">3</span>
+                <span>Smart contract updates blockchain</span>
+              </div>
+            </div>
+            <Button
+              variant="primary"
+              size="md"
+              className="w-full"
+              onClick={() => setPurchaseModalOpen(true)}
+              leftIcon={<ShoppingCart className="w-4 h-4 text-slate-950" />}
+            >
+              Initiate Purchase / Acquisition
+            </Button>
+          </Card>
+
+          {/* Certificate Card */}
+          <Card className="text-center p-6 bg-gradient-to-b from-white to-ivory-100 border border-slate-200">
+            <div className="w-14 h-14 mx-auto rounded-full bg-gold/15 text-gold-dark flex items-center justify-center mb-3">
+              <FileText className="w-7 h-7 text-slate-900" />
+            </div>
+            <h3 className="font-serif text-lg font-bold text-slate-900">
               Digital Land Certificate
             </h3>
-            <p className="text-xs text-muted-slate mt-1 mb-5">
-              Cryptographically signed academic certificate featuring an embedded QR verification seal and SHA-256 hash.
+            <p className="text-xs text-slate-600 mt-1 mb-5">
+              Cryptographically signed certificate featuring an embedded QR verification seal and SHA-256 hash.
             </p>
             <div className="space-y-2">
               <a
@@ -466,12 +558,12 @@ export const PublicLandDetailsPage: React.FC = () => {
                 rel="noreferrer"
                 className="w-full block"
               >
-                <Button variant="primary" size="md" className="w-full" leftIcon={<Download className="w-4 h-4" />}>
+                <Button variant="primary" size="md" className="w-full" leftIcon={<Download className="w-4 h-4 text-slate-950" />}>
                   Download PDF Certificate
                 </Button>
               </a>
               <Link to={`/verify/${record.landId}`} className="w-full block">
-                <Button variant="outline" size="sm" className="w-full" leftIcon={<QrCode className="w-3.5 h-3.5" />}>
+                <Button variant="outline" size="sm" className="w-full" leftIcon={<QrCode className="w-3.5 h-3.5 text-slate-800" />}>
                   Open QR Verification
                 </Button>
               </Link>
@@ -479,38 +571,38 @@ export const PublicLandDetailsPage: React.FC = () => {
           </Card>
 
           {/* Mobile QR Verification Card */}
-          <Card className="text-center p-6">
-            <div className="w-12 h-12 mx-auto rounded-xl bg-ivory-100 text-slate-navy flex items-center justify-center mb-3 border border-ivory-300">
+          <Card className="text-center p-6 border border-slate-200">
+            <div className="w-12 h-12 mx-auto rounded-xl bg-slate-100 text-slate-800 flex items-center justify-center mb-3 border border-slate-200">
               <QrCode className="w-6 h-6" />
             </div>
-            <h3 className="font-serif text-base font-bold text-midnight">
+            <h3 className="font-serif text-base font-bold text-slate-900">
               Mobile QR Verification
             </h3>
-            <p className="text-xs text-muted-slate mt-1 mb-4">
-              Anyone can scan the certificate QR code with their mobile camera to verify this record publicly without login or MetaMask.
+            <p className="text-xs text-slate-600 mt-1 mb-4">
+              Scan the certificate QR code with any mobile camera to verify this record publicly without login or MetaMask.
             </p>
-            <div className="p-3 bg-ivory-100 rounded-lg text-left text-[11px] font-mono text-muted-slate break-all">
+            <div className="p-3 bg-slate-100 rounded-lg text-left text-xs font-mono text-slate-800 break-all font-medium border border-slate-200">
               {window.location.origin}/verify/{record.landId}
             </div>
           </Card>
 
           {/* Inquire with Agent */}
-          <Card className="text-center p-6">
-            <div className="w-12 h-12 mx-auto rounded-full bg-blue-50 text-muted-blue flex items-center justify-center mb-3">
+          <Card className="text-center p-6 border border-slate-200">
+            <div className="w-12 h-12 mx-auto rounded-full bg-blue-50 text-blue-800 flex items-center justify-center mb-3">
               <Building2 className="w-6 h-6" />
             </div>
-            <h3 className="font-serif text-base font-bold text-midnight">
+            <h3 className="font-serif text-base font-bold text-slate-900">
               Interested in this Parcel?
             </h3>
-            <p className="text-xs text-muted-slate mt-1 mb-4">
-              Submit a formal inquiry to our demonstration real estate agents for ownership coordination.
+            <p className="text-xs text-slate-600 mt-1 mb-4">
+              Submit a formal inquiry to our registered real estate agents for ownership coordination.
             </p>
             <Button
               variant="outline"
               size="sm"
               className="w-full"
               onClick={() => setEnquiryModalOpen(true)}
-              leftIcon={<MessageSquare className="w-3.5 h-3.5" />}
+              leftIcon={<MessageSquare className="w-3.5 h-3.5 text-slate-800" />}
             >
               Submit Client Enquiry
             </Button>
@@ -519,9 +611,116 @@ export const PublicLandDetailsPage: React.FC = () => {
       </div>
 
       {/* Mandatory Academic Demonstration Notice */}
-      <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 leading-relaxed text-center">
+      <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-950 leading-relaxed text-center font-medium">
         <strong>Academic Demonstration Notice:</strong> This public verification dashboard reflects records committed to the LandChain research blockchain. It does not establish statutory title deeds, substitute for state revenue departments, or possess legal standing in a court of law.
       </div>
+
+      {/* Land Buyer Purchase / Transfer Request Modal */}
+      <Modal
+        isOpen={purchaseModalOpen}
+        onClose={() => setPurchaseModalOpen(false)}
+        title="Initiate Land Purchase / Acquisition"
+        subtitle={`Application Layer: Land Transfer Management • Parcel ${record.parcelNumber} (${record.landId})`}
+      >
+        {purchaseSuccess ? (
+          <div className="py-6 text-center text-emerald-800 space-y-2">
+            <CheckCircle2 className="w-12 h-12 mx-auto text-emerald-600" />
+            <h4 className="font-serif text-lg font-bold text-slate-900">Purchase Request Initiated!</h4>
+            <p className="text-xs text-slate-700 max-w-sm mx-auto">
+              Your acquisition request has been forwarded to the Government Authority for document & identity verification and smart contract execution.
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handlePurchaseSubmit} className="space-y-4 text-xs">
+            {purchaseError && (
+              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-xs font-medium">
+                {purchaseError}
+              </div>
+            )}
+
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5 text-xs text-slate-800">
+              <div className="flex justify-between">
+                <span className="text-slate-600">Parcel Number:</span>
+                <span className="font-bold text-slate-900 font-mono">{record.parcelNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Location:</span>
+                <span className="font-semibold text-slate-900">{record.locality}, {record.district}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Current Owner:</span>
+                <span className="font-mono text-slate-900 text-[11px] truncate max-w-[200px]">{record.currentOwnerWallet}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Area:</span>
+                <span className="font-semibold text-slate-900">{record.areaSqMeters.toLocaleString()} Sq.M</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-900 mb-1">
+                Transfer Type * (Land Transfer Management)
+              </label>
+              <select
+                value={purchaseType}
+                onChange={(e) => setPurchaseType(e.target.value as any)}
+                className="w-full py-2.5 px-3 border border-slate-300 rounded-md text-xs font-semibold focus:ring-1 focus:ring-gold bg-white text-slate-900"
+              >
+                <option value="PURCHASE">Purchase (Direct Acquisition by Buyer)</option>
+                <option value="SALE">Sale (Standard Deed Conveyance)</option>
+                <option value="INHERITANCE">Inheritance (Succession Title Transfer)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-900 mb-1">
+                Proposed Purchase Price (INR) *
+              </label>
+              <input
+                type="number"
+                min="0"
+                required
+                value={purchasePrice}
+                onChange={(e) => setPurchasePrice(Number(e.target.value))}
+                placeholder="15000000"
+                className="w-full py-2.5 px-3 border border-slate-300 rounded-md text-xs font-semibold focus:ring-1 focus:ring-gold text-slate-900"
+              />
+              <div className="mt-1 text-[11px] font-semibold text-slate-700">
+                Display: ₹{Number(purchasePrice || 0).toLocaleString("en-IN")}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-900 mb-1">
+                Purchase Notes / Reason (Optional)
+              </label>
+              <textarea
+                rows={3}
+                value={purchaseNotes}
+                onChange={(e) => setPurchaseNotes(e.target.value)}
+                placeholder="Details on proposed purchase timeline, buyer credentials, or acquisition rationale..."
+                className="w-full py-2 px-3 border border-slate-300 rounded-md text-xs focus:ring-1 focus:ring-gold text-slate-900"
+              />
+            </div>
+
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-950 space-y-1">
+              <span className="font-bold block">7-Step Verification Lifecycle:</span>
+              <p>
+                Buyer initiates purchase → Government Authority verifies documents & identity → Smart Contract validates ownership & transaction → Blockchain stores verified record → Buyer becomes certified owner.
+              </p>
+            </div>
+
+            <div className="pt-2 flex justify-end space-x-2">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setPurchaseModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" size="sm" isLoading={purchaseSubmitting}>
+                Submit Purchase Request
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
 
       {/* Enquiry Modal */}
       <Modal
@@ -532,54 +731,54 @@ export const PublicLandDetailsPage: React.FC = () => {
       >
         {enquirySuccess ? (
           <div className="py-6 text-center text-status-success">
-            <Check className="w-10 h-10 mx-auto mb-2" />
-            <p className="text-sm font-bold">Enquiry Submitted Successfully!</p>
-            <p className="text-xs text-muted-slate mt-1">
+            <Check className="w-10 h-10 mx-auto mb-2 text-emerald-600" />
+            <p className="text-sm font-bold text-slate-900">Enquiry Submitted Successfully!</p>
+            <p className="text-xs text-slate-600 mt-1">
               A demonstration agent has received your request.
             </p>
           </div>
         ) : (
           <form onSubmit={handleEnquirySubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-navy mb-1">Your Full Name</label>
+              <label className="block text-xs font-semibold text-slate-800 mb-1">Your Full Name</label>
               <input
                 type="text"
                 required
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
                 placeholder="e.g. Vikram Sharma"
-                className="w-full py-2 px-3 border border-ivory-300 rounded-md text-xs focus:ring-1 focus:ring-gold"
+                className="w-full py-2 px-3 border border-slate-300 rounded-md text-xs focus:ring-1 focus:ring-gold text-slate-900"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-navy mb-1">Email Address</label>
+              <label className="block text-xs font-semibold text-slate-800 mb-1">Email Address</label>
               <input
                 type="email"
                 required
                 value={clientEmail}
                 onChange={(e) => setClientEmail(e.target.value)}
                 placeholder="e.g. buyer@example.com"
-                className="w-full py-2 px-3 border border-ivory-300 rounded-md text-xs focus:ring-1 focus:ring-gold"
+                className="w-full py-2 px-3 border border-slate-300 rounded-md text-xs focus:ring-1 focus:ring-gold text-slate-900"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-navy mb-1">Phone Number (Optional)</label>
+              <label className="block text-xs font-semibold text-slate-800 mb-1">Phone Number (Optional)</label>
               <input
                 type="tel"
                 value={clientPhone}
                 onChange={(e) => setClientPhone(e.target.value)}
                 placeholder="+91 98765 43210"
-                className="w-full py-2 px-3 border border-ivory-300 rounded-md text-xs focus:ring-1 focus:ring-gold"
+                className="w-full py-2 px-3 border border-slate-300 rounded-md text-xs focus:ring-1 focus:ring-gold text-slate-900"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-navy mb-1">Message / Questions</label>
+              <label className="block text-xs font-semibold text-slate-800 mb-1">Message / Questions</label>
               <textarea
                 rows={3}
                 value={enquiryMessage}
                 onChange={(e) => setEnquiryMessage(e.target.value)}
                 placeholder="I am interested in acquiring or reviewing survey records for this parcel..."
-                className="w-full py-2 px-3 border border-ivory-300 rounded-md text-xs focus:ring-1 focus:ring-gold"
+                className="w-full py-2 px-3 border border-slate-300 rounded-md text-xs focus:ring-1 focus:ring-gold text-slate-900"
               />
             </div>
             <div className="pt-2 flex justify-end space-x-2">

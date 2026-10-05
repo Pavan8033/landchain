@@ -47,12 +47,15 @@ export const ReviewApplicationSchema = z.object({
 
 export const CreateTransferRequestSchema = z.object({
   landId: z.string().min(3, "Land ID is required"),
-  buyerEmail: z.string().email("Valid buyer email is required"),
+  buyerEmail: z.string().email("Valid buyer email is required").optional().or(z.literal("")),
   buyerWallet: z
     .string()
-    .regex(/^0x[a-fA-F0-9]{40}$/, "Valid buyer wallet address is required"),
+    .regex(/^0x[a-fA-F0-9]{40}$/, "Valid buyer wallet address is required")
+    .optional(),
   agreedPrice: z.number().nonnegative().optional(),
   currency: z.string().default("INR"),
+  transferType: z.enum(["SALE", "PURCHASE", "INHERITANCE"]).default("SALE"),
+  transferReason: z.string().optional(),
 });
 
 export const BuyerConsentSchema = z.object({

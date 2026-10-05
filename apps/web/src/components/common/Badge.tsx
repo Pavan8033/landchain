@@ -23,19 +23,19 @@ export const Badge: React.FC<BadgeProps> = ({
   };
 
   const variantStyles = {
-    success: "bg-emerald-50 text-status-success border border-emerald-200/80",
-    warning: "bg-amber-50 text-status-warning border border-amber-200/80",
-    danger: "bg-red-50 text-status-error border border-red-200/80",
-    info: "bg-blue-50 text-muted-blue border border-blue-200/80",
-    gold: "bg-gold/15 text-gold-dark border border-gold/40",
-    neutral: "bg-ivory-200 text-slate-navy border border-ivory-300",
+    success: "bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold dark:bg-emerald-950 dark:text-emerald-200 dark:border-emerald-700",
+    warning: "bg-amber-100 text-amber-900 border border-amber-300 font-bold dark:bg-amber-950 dark:text-amber-200 dark:border-amber-700",
+    danger: "bg-rose-100 text-rose-900 border border-rose-300 font-bold dark:bg-rose-950 dark:text-rose-200 dark:border-rose-700",
+    info: "bg-sky-100 text-sky-900 border border-sky-300 font-bold dark:bg-sky-950 dark:text-sky-200 dark:border-sky-700",
+    gold: "bg-amber-100 text-amber-950 border border-amber-400 font-bold dark:bg-amber-950 dark:text-amber-200 dark:border-amber-600",
+    neutral: "bg-slate-200 text-slate-900 border border-slate-300 font-bold dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700",
   };
 
   return (
     <span
       className={`inline-flex items-center uppercase rounded-full ${sizeStyles[size]} ${variantStyles[variant]}`}
     >
-      <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-current opacity-80" />
+      <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-current opacity-90" />
       {children}
     </span>
   );

@@ -55,7 +55,7 @@ export const SellerDashboardPage: React.FC = () => {
           <h1 className="font-serif text-2xl sm:text-3xl font-bold">
             Welcome, {user?.displayName}
           </h1>
-          <p className="text-xs text-ivory-200 mt-1 max-w-xl">
+          <p className="text-xs text-slate-200 font-medium mt-1 max-w-xl">
             Manage your registered parcels, submit new registration applications with document hashes, and track ownership conveyances.
           </p>
         </div>

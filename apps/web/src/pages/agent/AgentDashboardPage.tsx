@@ -42,7 +42,7 @@ export const AgentDashboardPage: React.FC = () => {
           <h1 className="font-serif text-2xl sm:text-3xl font-bold">
             Welcome, {user?.displayName}
           </h1>
-          <p className="text-xs text-ivory-200 mt-1 max-w-xl">
+          <p className="text-xs text-slate-200 font-medium mt-1 max-w-xl">
             Browse verified public parcels for client matching, coordinate demonstration conveyances, and manage prospective buyer enquiries.
           </p>
         </div>

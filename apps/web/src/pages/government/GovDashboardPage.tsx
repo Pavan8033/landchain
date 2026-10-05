@@ -59,7 +59,7 @@ export const GovDashboardPage: React.FC = () => {
           <h1 className="font-serif text-2xl sm:text-3xl font-bold">
             Registrar Overview & Scrutiny Workspace
           </h1>
-          <p className="text-xs text-ivory-200 mt-1 max-w-xl">
+          <p className="text-xs text-slate-200 font-medium mt-1 max-w-xl">
             Authorized portal for regulatory scrutiny of title deeds, boundary verification, and cryptographic smart contract authorization.
           </p>
         </div>
