@@ -88,40 +88,108 @@ export async function getLandRegistryContract(signerOrProvider?: ethers.Signer |
   return new ethers.Contract(CONTRACT_ADDRESS, LandRegistryAbi.abi, target);
 }
 
-// Contract Operations
-export async function registerLandOnChain(params: {
-  landId: string;
-  parcelNumber: string;
-  ownerWallet: string;
-  locality: string;
-  areaSqMeters: number;
-  docHash: string;
-}): Promise<{ txHash: string; blockNumber: number }> {
-  await checkAndSwitchNetwork();
-  const provider = await getWeb3Provider();
-  const signer = await provider.getSigner();
-  const contract = await getLandRegistryContract(signer);
+/**
+ * Cleanly format and parse Web3 / MetaMask / RPC error messages
+ */
+export function formatBlockchainError(err: any): string {
+  if (!err) return "Unknown blockchain error.";
+  const msg = err.message || String(err);
 
-  const tx = await contract.registerLand(
-    params.landId,
-    params.parcelNumber,
-    params.ownerWallet,
-    params.locality,
-    BigInt(params.areaSqMeters),
-    params.docHash
-  );
-
-  const receipt = await tx.wait();
-  return {
-    txHash: receipt.hash,
-    blockNumber: receipt.blockNumber,
-  };
+  if (err.code === 4001 || msg.includes("rejected") || msg.includes("denied")) {
+    return "MetaMask transaction signature was cancelled by user.";
+  }
+  if (msg.includes("-32002") || msg.includes("RPC endpoint returned too many errors") || msg.includes("rate limit")) {
+    return "RPC Endpoint Busy / Rate Limited (-32002). The connected RPC endpoint is unavailable or throttled.";
+  }
+  if (msg.includes("could not coalesce error") || msg.includes("eth_blockNumber")) {
+    return "Local blockchain node at http://127.0.0.1:8545 is not running or RPC connection timed out.";
+  }
+  if (msg.includes("fetch failed") || msg.includes("NetworkError") || msg.includes("connection refused")) {
+    return "Cannot connect to local Ethereum node (127.0.0.1:8545). Please verify Hardhat node is running.";
+  }
+  if (msg.includes("execution reverted")) {
+    return `Smart contract reverted: ${msg.split("reverted:")[1] || "Condition failed"}`;
+  }
+  return msg.length > 120 ? `${msg.substring(0, 120)}...` : msg;
 }
 
-export async function initiateTransferOnChain(params: {
-  landId: string;
-  buyerWallet: string;
-}): Promise<{ txHash: string; blockNumber: number }> {
+/**
+ * Generate cryptographic simulated on-chain receipt for resilient demonstration
+ */
+export async function generateSimulatedOnChainReceipt(
+  identifier: string,
+  prefix: string = "REG"
+): Promise<{ txHash: string; blockNumber: number }> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(`${prefix}-${identifier}-${Date.now()}-${Math.random()}`);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hexHash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  const txHash = `0x${hexHash}`;
+  const blockNumber = Math.floor(18000000 + (Date.now() % 1000000));
+  return { txHash, blockNumber };
+}
+
+// Contract Operations
+export async function registerLandOnChain(
+  params: {
+    landId: string;
+    parcelNumber: string;
+    ownerWallet: string;
+    locality: string;
+    areaSqMeters: number;
+    docHash: string;
+  },
+  forceSimulate: boolean = false
+): Promise<{ txHash: string; blockNumber: number; isSimulated?: boolean }> {
+  if (forceSimulate) {
+    const sim = await generateSimulatedOnChainReceipt(params.landId, "LAND_REG");
+    return { ...sim, isSimulated: true };
+  }
+
+  try {
+    await checkAndSwitchNetwork();
+    const provider = await getWeb3Provider();
+    const signer = await provider.getSigner();
+    const contract = await getLandRegistryContract(signer);
+
+    const tx = await contract.registerLand(
+      params.landId,
+      params.parcelNumber,
+      params.ownerWallet,
+      params.locality,
+      BigInt(params.areaSqMeters),
+      params.docHash
+    );
+
+    const receipt = await tx.wait();
+    return {
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      isSimulated: false,
+    };
+  } catch (err: any) {
+    // If it's a user rejection, throw immediately
+    if (err.code === 4001 || err.message?.includes("rejected")) {
+      throw err;
+    }
+    // Re-throw with enriched information for the caller
+    throw err;
+  }
+}
+
+export async function initiateTransferOnChain(
+  params: {
+    landId: string;
+    buyerWallet: string;
+  },
+  forceSimulate: boolean = false
+): Promise<{ txHash: string; blockNumber: number; isSimulated?: boolean }> {
+  if (forceSimulate) {
+    const sim = await generateSimulatedOnChainReceipt(params.landId, "TX_INIT");
+    return { ...sim, isSimulated: true };
+  }
+
   await checkAndSwitchNetwork();
   const provider = await getWeb3Provider();
   const signer = await provider.getSigner();
@@ -135,7 +203,15 @@ export async function initiateTransferOnChain(params: {
   };
 }
 
-export async function acceptTransferOnChain(landId: string): Promise<{ txHash: string; blockNumber: number }> {
+export async function acceptTransferOnChain(
+  landId: string,
+  forceSimulate: boolean = false
+): Promise<{ txHash: string; blockNumber: number; isSimulated?: boolean }> {
+  if (forceSimulate) {
+    const sim = await generateSimulatedOnChainReceipt(landId, "TX_ACCEPT");
+    return { ...sim, isSimulated: true };
+  }
+
   await checkAndSwitchNetwork();
   const provider = await getWeb3Provider();
   const signer = await provider.getSigner();
@@ -149,7 +225,15 @@ export async function acceptTransferOnChain(landId: string): Promise<{ txHash: s
   };
 }
 
-export async function rejectTransferOnChain(landId: string): Promise<{ txHash: string; blockNumber: number }> {
+export async function rejectTransferOnChain(
+  landId: string,
+  forceSimulate: boolean = false
+): Promise<{ txHash: string; blockNumber: number; isSimulated?: boolean }> {
+  if (forceSimulate) {
+    const sim = await generateSimulatedOnChainReceipt(landId, "TX_REJECT");
+    return { ...sim, isSimulated: true };
+  }
+
   await checkAndSwitchNetwork();
   const provider = await getWeb3Provider();
   const signer = await provider.getSigner();
@@ -163,7 +247,15 @@ export async function rejectTransferOnChain(landId: string): Promise<{ txHash: s
   };
 }
 
-export async function authorizeTransferOnChain(landId: string): Promise<{ txHash: string; blockNumber: number }> {
+export async function authorizeTransferOnChain(
+  landId: string,
+  forceSimulate: boolean = false
+): Promise<{ txHash: string; blockNumber: number; isSimulated?: boolean }> {
+  if (forceSimulate) {
+    const sim = await generateSimulatedOnChainReceipt(landId, "TX_AUTH");
+    return { ...sim, isSimulated: true };
+  }
+
   await checkAndSwitchNetwork();
   const provider = await getWeb3Provider();
   const signer = await provider.getSigner();

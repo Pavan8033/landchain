@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { api } from "../../services/api";
 import { generateIpfsCid, getIpfsGatewayUrl } from "../../utils/ipfs";
+import { IpfsInspectorModal } from "../../components/common/IpfsInspectorModal";
 
 export const RegisterLandWizardPage: React.FC = () => {
   const { user } = useAuth();
@@ -57,6 +58,9 @@ export const RegisterLandWizardPage: React.FC = () => {
 
   // STEP 4: Declaration Checkbox
   const [declarationAccepted, setDeclarationAccepted] = useState(false);
+
+  // IPFS Modal
+  const [ipfsModalOpen, setIpfsModalOpen] = useState(false);
 
   // Calculate actual SHA-256 hash from file buffer
   const handleFileSelection = async (file: File) => {
@@ -655,16 +659,15 @@ export const RegisterLandWizardPage: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex justify-between items-center pt-1">
-                  <a
-                    href={getIpfsGatewayUrl(docIpfsCid)}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => setIpfsModalOpen(true)}
                     className="inline-flex items-center text-[11px] font-bold text-blue-700 hover:text-blue-900"
                   >
-                    View on IPFS
+                    Inspect IPFS CID
                     <ExternalLink className="w-3 h-3 ml-1" />
-                  </a>
-                  <span className="text-[10px] text-blue-600">IPFS Gateway Active</span>
+                  </button>
+                  <span className="text-[10px] text-blue-600">Base58btc Multihash</span>
                 </div>
               </div>
             </div>
@@ -828,6 +831,19 @@ export const RegisterLandWizardPage: React.FC = () => {
           </div>
         </Card>
       )}
+
+      {/* IPFS Inspector Modal */}
+      <IpfsInspectorModal
+        isOpen={ipfsModalOpen}
+        onClose={() => setIpfsModalOpen(false)}
+        title={docTitle}
+        category={docCategory}
+        fileName={docFileName}
+        fileSize={fileSize}
+        sha256Hash={docHash ? (docHash.startsWith("0x") ? docHash : `0x${docHash}`) : undefined}
+        ipfsCid={docIpfsCid}
+        ipfsUrl={getIpfsGatewayUrl(docIpfsCid)}
+      />
     </div>
   );
 };

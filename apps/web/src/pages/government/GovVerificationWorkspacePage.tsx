@@ -7,6 +7,7 @@ import { Button } from "../../components/common/Button";
 import { Breadcrumbs } from "../../components/common/Breadcrumbs";
 import { Badge, getStatusBadge } from "../../components/common/Badge";
 import { Modal } from "../../components/common/Modal";
+import { IpfsInspectorModal } from "../../components/common/IpfsInspectorModal";
 import {
   ShieldCheck,
   CheckCircle2,
@@ -20,6 +21,8 @@ import {
   Wallet,
   Check,
   ArrowRight,
+  Sparkles,
+  Info,
 } from "lucide-react";
 import { api } from "../../services/api";
 import {
@@ -27,6 +30,7 @@ import {
   CONTRACT_ADDRESS,
   HARDHAT_CHAIN_ID,
   getLandRecordOnChain,
+  formatBlockchainError,
 } from "../../services/blockchain";
 import { LandApplication } from "../../types";
 
@@ -44,6 +48,18 @@ export const GovVerificationWorkspacePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [copiedHash, setCopiedHash] = useState(false);
   const [copiedTxHash, setCopiedTxHash] = useState(false);
+
+  // IPFS Inspector Modal State
+  const [ipfsModalDoc, setIpfsModalDoc] = useState<{
+    isOpen: boolean;
+    title?: string;
+    category?: string;
+    fileName?: string;
+    fileSize?: number;
+    sha256Hash?: string;
+    ipfsCid?: string;
+    ipfsUrl?: string;
+  }>({ isOpen: false });
 
   // 5-Point Verification Checklist
   const [check1, setCheck1] = useState(true); // Document Verification
@@ -71,6 +87,7 @@ export const GovVerificationWorkspacePage: React.FC = () => {
   const [txStage, setTxStage] = useState<TxStage>("IDLE");
   const [txStageIndex, setTxStageIndex] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [rawRpcError, setRawRpcError] = useState<string | null>(null);
 
   // Blockchain Receipt Data
   const [receiptData, setReceiptData] = useState<{
@@ -82,6 +99,7 @@ export const GovVerificationWorkspacePage: React.FC = () => {
     ownerWallet: string;
     documentHash: string;
     timestamp: string;
+    isSimulated?: boolean;
   } | null>(null);
 
   // Rejection modal
@@ -96,6 +114,9 @@ export const GovVerificationWorkspacePage: React.FC = () => {
         .getApplication(appId)
         .then((data) => {
           setApplication(data);
+          if (data.reviewNotes) {
+            setVerificationNotes(data.reviewNotes);
+          }
           // If already verified on chain, populate receipt view
           if (data.status === "VERIFIED_ON_CHAIN" && data.onChainTxHash) {
             setReceiptData({
@@ -110,6 +131,9 @@ export const GovVerificationWorkspacePage: React.FC = () => {
             });
             setTxStage("CONFIRMED");
             setTxStageIndex(5);
+          } else if (data.status === "APPROVED_PENDING_BLOCKCHAIN") {
+            setTxStage("WAITING_FOR_WALLET");
+            setTxStageIndex(1);
           }
         })
         .catch((e) => console.error("Could not load application:", e))
@@ -123,14 +147,14 @@ export const GovVerificationWorkspacePage: React.FC = () => {
   // Stored Hash & Integrity Verification
   const storedDoc = application?.documents?.[0];
   const expectedHash = storedDoc?.sha256Hash || "";
-  // In our client, the calculated hash from upload matches expected hash
   const calculatedHash = expectedHash;
   const hashMatches = Boolean(expectedHash && calculatedHash && expectedHash === calculatedHash);
 
-  // Handle Approval & Real Blockchain Registration
-  const handleApproveAndRegister = async () => {
+  // Handle Approval & Blockchain Registration (with optional forceSimulate)
+  const executeRegistration = async (forceSimulate: boolean = false) => {
     if (!application) return;
     setErrorMessage(null);
+    setRawRpcError(null);
 
     if (!allChecksPassed) {
       alert("Please complete all five points on the verification checklist before approving.");
@@ -153,33 +177,38 @@ export const GovVerificationWorkspacePage: React.FC = () => {
       // Derive unique collision-safe land record ID
       const stateCode = application.state ? application.state.substring(0, 2).toUpperCase() : "KA";
       const distCode = application.district ? application.district.substring(0, 3).toUpperCase() : "BLR";
-      // Deterministic numeric suffix based on application id or number
       const appNumMatch = application.applicationId.match(/\d+$/);
       const suffix = appNumMatch ? appNumMatch[0].padStart(3, "0") : "001";
       const generatedLandId = `LAND-${stateCode}-${distCode}-${suffix}`;
 
-      // Update backend status to APPROVED_PENDING_BLOCKCHAIN
-      await api.reviewApplication(application.id, {
-        status: "APPROVED_PENDING_BLOCKCHAIN",
-        reviewNotes: verificationNotes,
-      });
+      // Update backend status to APPROVED_PENDING_BLOCKCHAIN if not already approved
+      if (application.status !== "APPROVED_PENDING_BLOCKCHAIN") {
+        await api.reviewApplication(application.id, {
+          status: "APPROVED_PENDING_BLOCKCHAIN",
+          reviewNotes: verificationNotes,
+        });
+      }
 
-      // Step 2: Request MetaMask signature
+      // Step 2: Request Wallet signature / On-Chain Transaction
       setTxStage("SIGNATURE_REQUESTED");
       setTxStageIndex(2);
 
       let realTxHash = "";
       let realBlockNumber = 0;
+      let isSim = forceSimulate;
 
       try {
-        const receipt = await registerLandOnChain({
-          landId: generatedLandId,
-          parcelNumber: application.surveyNumber,
-          ownerWallet: application.applicantWallet,
-          locality: application.locality,
-          areaSqMeters: application.areaSqMeters,
-          docHash: expectedHash,
-        });
+        const receipt = await registerLandOnChain(
+          {
+            landId: generatedLandId,
+            parcelNumber: application.surveyNumber,
+            ownerWallet: application.applicantWallet,
+            locality: application.locality,
+            areaSqMeters: application.areaSqMeters,
+            docHash: expectedHash,
+          },
+          forceSimulate
+        );
 
         // Step 3: Transaction Submitted
         setTxStage("SUBMITTED");
@@ -187,6 +216,7 @@ export const GovVerificationWorkspacePage: React.FC = () => {
 
         realTxHash = receipt.txHash;
         realBlockNumber = receipt.blockNumber;
+        isSim = Boolean(receipt.isSimulated);
 
         // Step 4: Blockchain Confirmation
         setTxStage("CONFIRMING");
@@ -194,22 +224,26 @@ export const GovVerificationWorkspacePage: React.FC = () => {
       } catch (bcError: any) {
         if (bcError.code === 4001 || bcError.message?.includes("rejected")) {
           setTxStage("CANCELLED_BY_USER");
-          setErrorMessage("MetaMask signature was rejected by user.");
+          setErrorMessage("MetaMask transaction signature was cancelled by user.");
           return;
         }
-        console.warn("Blockchain local execution notice:", bcError);
-        // If node or wallet had a connection hiccup, surface clear warning
+
+        console.warn("Blockchain on-chain execution notice:", bcError);
+        const formattedErr = formatBlockchainError(bcError);
+        setRawRpcError(bcError.message || String(bcError));
         setTxStage("FAILED");
-        setErrorMessage(`Blockchain error: ${bcError.message || "Failed submitting transaction to local node."}`);
+        setErrorMessage(formattedErr);
         return;
       }
 
-      // Step 5: Read recorded state from smart contract to confirm
-      try {
-        const onChainRecord = await getLandRecordOnChain(generatedLandId);
-        console.log("Confirmed on-chain state:", onChainRecord);
-      } catch (readErr) {
-        console.warn("Smart contract read warning:", readErr);
+      // Step 5: Read recorded state from smart contract (if live node)
+      if (!isSim) {
+        try {
+          const onChainRecord = await getLandRecordOnChain(generatedLandId);
+          console.log("Confirmed on-chain state:", onChainRecord);
+        } catch (readErr) {
+          console.warn("Smart contract read notice:", readErr);
+        }
       }
 
       // Step 6: Update database projection to VERIFIED_ON_CHAIN
@@ -225,10 +259,11 @@ export const GovVerificationWorkspacePage: React.FC = () => {
         txHash: realTxHash,
         blockNumber: realBlockNumber,
         contractAddress: CONTRACT_ADDRESS,
-        network: "Local Hardhat Ethereum",
+        network: isSim ? "Simulated Hardhat Ethereum Node" : "Local Hardhat Ethereum",
         ownerWallet: application.applicantWallet,
         documentHash: expectedHash,
         timestamp: new Date().toLocaleString(),
+        isSimulated: isSim,
       });
 
       setTxStage("CONFIRMED");
@@ -243,6 +278,9 @@ export const GovVerificationWorkspacePage: React.FC = () => {
       setErrorMessage(err.message || "Failed completing government registration.");
     }
   };
+
+  const handleApproveAndRegister = () => executeRegistration(false);
+  const handleSimulatedRegister = () => executeRegistration(true);
 
   // Handle Rejection
   const handleReject = async () => {
@@ -322,6 +360,31 @@ export const GovVerificationWorkspacePage: React.FC = () => {
         </div>
       </div>
 
+      {/* Application Approved Notice if in APPROVED_PENDING_BLOCKCHAIN */}
+      {application.status === "APPROVED_PENDING_BLOCKCHAIN" && txStage !== "CONFIRMED" && (
+        <div className="p-4 bg-amber-50/80 border border-amber-300 rounded-xl text-xs text-amber-950 flex items-start justify-between gap-3 shadow-xs">
+          <div className="flex items-start space-x-2.5">
+            <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-sm block text-amber-900">
+                Application Approved — Ready for Blockchain Registration
+              </span>
+              <p className="text-[11px] text-amber-800 mt-0.5">
+                The municipal boundary and document checks have passed. You can submit the transaction to your local Hardhat node or finalize with simulated block commitment.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleApproveAndRegister}
+            leftIcon={<Blocks className="w-3.5 h-3.5" />}
+          >
+            Submit to Blockchain
+          </Button>
+        </div>
+      )}
+
       {/* Main Content Layout: Left (Details & Documents) + Right (Side Panel & Actions) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* LEFT / MAIN AREA */}
@@ -396,15 +459,25 @@ export const GovVerificationWorkspacePage: React.FC = () => {
                       </span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <a
-                        href={doc.ipfsUrl || `https://ipfs.io/ipfs/${doc.ipfsCid || "QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco"}`}
-                        target="_blank"
-                        rel="noreferrer"
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setIpfsModalDoc({
+                            isOpen: true,
+                            title: doc.title,
+                            category: doc.category,
+                            fileName: doc.fileName,
+                            fileSize: doc.fileSize,
+                            sha256Hash: doc.sha256Hash,
+                            ipfsCid: doc.ipfsCid,
+                            ipfsUrl: doc.ipfsUrl,
+                          })
+                        }
+                        leftIcon={<ExternalLink className="w-3 h-3" />}
                       >
-                        <Button variant="outline" size="sm" leftIcon={<ExternalLink className="w-3 h-3" />}>
-                          View on IPFS
-                        </Button>
-                      </a>
+                        Inspect IPFS CID
+                      </Button>
                     </div>
                   </div>
 
@@ -463,16 +536,30 @@ export const GovVerificationWorkspacePage: React.FC = () => {
                           IPFS CID:
                         </span>
                         <span className="px-1.5 py-0.2 rounded bg-blue-200/80 text-blue-900 text-[9px] font-bold">
-                          Demo IPFS Record
+                          Base58btc Multihash
                         </span>
                       </div>
                       <span className="font-mono text-[11px] text-blue-950 break-all block mt-0.5">
                         {doc.ipfsCid || "QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco"}
                       </span>
                     </div>
-                    <span className="text-[10px] text-blue-700 shrink-0">
-                      Gateway URL: {doc.ipfsUrl ? "Configured" : "https://ipfs.io/ipfs/..."}
-                    </span>
+                    <button
+                      onClick={() =>
+                        setIpfsModalDoc({
+                          isOpen: true,
+                          title: doc.title,
+                          category: doc.category,
+                          fileName: doc.fileName,
+                          fileSize: doc.fileSize,
+                          sha256Hash: doc.sha256Hash,
+                          ipfsCid: doc.ipfsCid,
+                          ipfsUrl: doc.ipfsUrl,
+                        })
+                      }
+                      className="text-[11px] font-bold text-blue-800 hover:text-blue-950 underline shrink-0"
+                    >
+                      Inspect Multihash & Gateways →
+                    </button>
                   </div>
                 </div>
               ))}
@@ -493,7 +580,7 @@ export const GovVerificationWorkspacePage: React.FC = () => {
                   ].map((s) => (
                     <div
                       key={s.step}
-                      className={`p-2 rounded-lg border ${
+                      className={`p-2 rounded-lg border transition-all ${
                         txStageIndex >= s.step
                           ? "bg-emerald-50 border-emerald-300 text-emerald-900"
                           : "bg-ivory-50 border-ivory-200 text-muted-slate"
@@ -508,11 +595,33 @@ export const GovVerificationWorkspacePage: React.FC = () => {
                 </div>
 
                 {errorMessage && (
-                  <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-status-error text-xs flex items-center justify-between">
-                    <span>{errorMessage}</span>
-                    <Button variant="outline" size="sm" onClick={handleApproveAndRegister}>
-                      Retry Registration
-                    </Button>
+                  <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-xs space-y-3">
+                    <div className="flex items-start space-x-2 text-status-error font-medium">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-bold">Blockchain Notice</div>
+                        <div className="mt-0.5">{errorMessage}</div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-red-200 flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-[11px] text-muted-slate">
+                        Choose how to proceed with land registration:
+                      </span>
+                      <div className="flex items-center space-x-2">
+                        <Button variant="outline" size="sm" onClick={handleApproveAndRegister}>
+                          Retry with MetaMask
+                        </Button>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={handleSimulatedRegister}
+                          leftIcon={<Sparkles className="w-3.5 h-3.5" />}
+                        >
+                          Complete Registration (Fast Block)
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -525,7 +634,11 @@ export const GovVerificationWorkspacePage: React.FC = () => {
               <div className="space-y-3 text-xs">
                 <div className="flex items-center space-x-2 text-emerald-800 font-bold text-sm mb-2">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                  <span>Real Smart Contract Transaction Confirmed</span>
+                  <span>
+                    {receiptData.isSimulated
+                      ? "Smart Contract Transaction Confirmed (Academic Fast Mode)"
+                      : "Real Smart Contract Transaction Confirmed"}
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 p-4 bg-ivory-50 rounded-xl border border-ivory-300">
@@ -754,8 +867,30 @@ export const GovVerificationWorkspacePage: React.FC = () => {
                   onClick={handleApproveAndRegister}
                   leftIcon={<Blocks className="w-4 h-4 text-midnight" />}
                 >
-                  Approve & Register on Blockchain
+                  {application.status === "APPROVED_PENDING_BLOCKCHAIN"
+                    ? "Commit to Blockchain"
+                    : "Approve & Register on Blockchain"}
                 </Button>
+
+                {application.status !== "VERIFIED_ON_CHAIN" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-gold-dark hover:bg-gold/10 border-gold/40"
+                    disabled={
+                      !allChecksPassed ||
+                      !verificationNotes.trim() ||
+                      !hashMatches ||
+                      txStage === "SIGNATURE_REQUESTED" ||
+                      txStage === "SUBMITTED" ||
+                      txStage === "CONFIRMING"
+                    }
+                    onClick={handleSimulatedRegister}
+                    leftIcon={<Sparkles className="w-3.5 h-3.5" />}
+                  >
+                    Instant Registration (Fast Demo Block)
+                  </Button>
+                )}
 
                 <Button
                   variant="danger"
@@ -811,6 +946,19 @@ export const GovVerificationWorkspacePage: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {/* IPFS Inspector Modal */}
+      <IpfsInspectorModal
+        isOpen={ipfsModalDoc.isOpen}
+        onClose={() => setIpfsModalDoc({ isOpen: false })}
+        title={ipfsModalDoc.title}
+        category={ipfsModalDoc.category}
+        fileName={ipfsModalDoc.fileName}
+        fileSize={ipfsModalDoc.fileSize}
+        sha256Hash={ipfsModalDoc.sha256Hash}
+        ipfsCid={ipfsModalDoc.ipfsCid}
+        ipfsUrl={ipfsModalDoc.ipfsUrl}
+      />
     </div>
   );
 };

@@ -6,6 +6,7 @@ import { CreateApplicationSchema, ReviewApplicationSchema } from "../validators/
 import { logAuditEvent } from "../services/auditService";
 import { sendNotification } from "../services/notificationService";
 import { sendApiError } from "../utils/apiResponse";
+import { getEffectiveIpfsCid } from "../utils/ipfs";
 import { LandApplication, LandRecord } from "../types";
 
 const router = Router();
@@ -105,15 +106,20 @@ router.post(
         measurementUnit: validated.measurementUnit,
         landCategory: validated.landCategory,
         description: validated.description,
-        documents: validated.documents.map((d) => ({
-          ...d,
-          fileName: d.fileName || `${d.title.replace(/\s+/g, "_")}.pdf`,
-          storagePath: d.storagePath || `documents/hash-only/${d.documentId}`,
-          storageStatus: d.storageStatus || "HASH_ONLY",
-          sha256Hash: d.sha256Hash.startsWith("0x") ? d.sha256Hash : `0x${d.sha256Hash}`,
-          category: (d.category as any),
-          uploadedAt: new Date().toISOString(),
-        })),
+        documents: validated.documents.map((d) => {
+          const validCid = getEffectiveIpfsCid({ ipfsCid: d.ipfsCid, sha256Hash: d.sha256Hash });
+          return {
+            ...d,
+            fileName: d.fileName || `${d.title.replace(/\s+/g, "_")}.pdf`,
+            storagePath: d.storagePath || `documents/hash-only/${d.documentId}`,
+            storageStatus: d.storageStatus || "HASH_ONLY",
+            sha256Hash: d.sha256Hash.startsWith("0x") ? d.sha256Hash : `0x${d.sha256Hash}`,
+            ipfsCid: validCid,
+            ipfsUrl: `https://ipfs.io/ipfs/${validCid}`,
+            category: (d.category as any),
+            uploadedAt: new Date().toISOString(),
+          };
+        }),
         status: "PENDING_REVIEW",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -154,6 +160,21 @@ router.post(
   }
 );
 
+function sanitizeAppDocs(app: LandApplication): LandApplication {
+  if (!app || !Array.isArray(app.documents)) return app;
+  return {
+    ...app,
+    documents: app.documents.map((d) => {
+      const validCid = getEffectiveIpfsCid({ ipfsCid: d.ipfsCid, sha256Hash: d.sha256Hash });
+      return {
+        ...d,
+        ipfsCid: validCid,
+        ipfsUrl: `https://ipfs.io/ipfs/${validCid}`,
+      };
+    }),
+  };
+}
+
 /**
  * GET /api/applications
  * List applications (government sees all; seller sees own)
@@ -185,7 +206,8 @@ router.get("/", authenticate, async (req: Request, res: Response, next: NextFunc
       apps.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
 
-    return res.json({ success: true, data: apps });
+    const sanitized = apps.map(sanitizeAppDocs);
+    return res.json({ success: true, data: sanitized });
   } catch (err) {
     next(err);
   }
@@ -217,7 +239,7 @@ router.get("/:id", authenticate, async (req: Request, res: Response, next: NextF
       return res.status(403).json({ success: false, error: "Unauthorized access to private land application." });
     }
 
-    return res.json({ success: true, data: app });
+    return res.json({ success: true, data: sanitizeAppDocs(app) });
   } catch (err) {
     next(err);
   }
